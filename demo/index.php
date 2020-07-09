@@ -10,4 +10,16 @@ function dd($var) {
 }
 
 $router = new Router();
-echo $router->test();
+$router->setBaseUrl('http://localhost/router/demo/');
+
+$router->get('about', function() {
+    echo 'about page!';
+});
+
+$router->get('contact', function() {
+    echo 'contact page!';
+});
+
+$router->run();
+
+//dd($router->getRouteList());
