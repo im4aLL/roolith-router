@@ -1,0 +1,17 @@
+{
+    "name": "roolith/router",
+    "description": "Simple PHP router",
+    "type": "library",
+    "authors": [
+        {
+            "name": "Hadi",
+            "email": "hadicse@gmail.com"
+        }
+    ],
+    "require": {
+        "phpunit/phpunit": "^9.2"
+    },
+    "autoload": {
+        "psr-4": {"Roolith\\": "src/"}
+    }
+}
