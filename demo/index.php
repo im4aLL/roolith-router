@@ -13,9 +13,9 @@ function dd($var) {
 $router = new Router();
 $router->setBaseUrl('http://localhost/router/demo/');
 
-$router->get('/', function() {
-    return 'default. Server request method:'. $_SERVER['REQUEST_METHOD'];
-});
+//$router->get('/', function() {
+//    return 'default. Server request method:'. $_SERVER['REQUEST_METHOD'];
+//});
 //
 //$router->get(['about', 'contact'], function() {
 //    return ['name' => 'Test bangla char', 'age' => 45];
@@ -63,4 +63,4 @@ $router->run();
 
 //print_r($router->getUrlByName('controller.index'));
 
-dd($router->getRouteList());
+//dd($router->getRouteList());

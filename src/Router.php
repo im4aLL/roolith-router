@@ -173,15 +173,37 @@ class Router
                 if ($route['path'] == $path) {
                     $selectedRoute = $route;
                     break;
-                } elseif (strstr($route['path'], '{')) {
-                    $pattern = "/{[^}]*}/";
-                    preg_match_all($pattern, $route['path'], $matches);
-                    print_r($matches[0]);
+                } elseif (strstr($route['path'], '{') && $this->matchPattern($route['path'], $this->request->getRequestedUrl())) {
+                    $selectedRoute = $route;
+                    break;
                 }
             }
         }
 
         return $selectedRoute;
+    }
+
+    protected function matchPattern($routerPath, $url)
+    {
+        $result = false;
+
+        $pattern = "/{[^}]*}/";
+        preg_match_all($pattern, $routerPath, $matches);
+        $matchArray = $matches[0];
+
+        if (count($matchArray) == 0) {
+            return $result;
+        }
+
+        $routerPattern = preg_replace([$pattern, '/\//'], ['[a-zA-Z0-9\_\-]+', '\/'], $routerPath);
+        $actualRouterPattern = "/^$routerPattern$/s";
+        preg_match($actualRouterPattern, $url, $patternMatch);
+
+        if (count($patternMatch) > 0) {
+            $result = true;
+        }
+
+        return $result;
     }
 
     protected function addToRouterArray($route)
