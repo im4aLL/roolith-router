@@ -13,15 +13,15 @@ function dd($var) {
 $router = new Router();
 $router->setBaseUrl('http://localhost/router/demo/');
 
-//$router->get('/', function() {
-//    return 'default. Server request method:'. $_SERVER['REQUEST_METHOD'];
-//});
+$router->get('/', function() {
+    return 'default. Server request method:'. $_SERVER['REQUEST_METHOD'];
+});
 //
 //$router->get(['about', 'contact'], function() {
 //    return ['name' => 'Test bangla char', 'age' => 45];
 //});
 //
-$router->get('test', function() {
+$router->get('/user/{userId}/edit/{another}', function() {
     return 'get content. Server request method:'. $_SERVER['REQUEST_METHOD'];
 });
 //
@@ -50,9 +50,13 @@ $router->get('test', function() {
 //});
 //
 
-$router->get('controller', 'Demo\Controller@index')->name('controller.index');
+//$router->get('controller', 'Demo\Controller@index')->name('controller.index');
 //$router->any('any', function() {
 //    return 'any content. Server request method:'. $_SERVER['REQUEST_METHOD'];
+//});
+
+//$router->crud('/crud', function () {
+//    return 'crud content. Server request method:'. $_SERVER['REQUEST_METHOD'];
 //});
 
 $router->run();
