@@ -49,12 +49,14 @@ $router->get('test', function() {
 //    return 'GET POST content. Server request method:'. $_SERVER['REQUEST_METHOD'];
 //});
 //
+
+$router->get('controller', 'Demo\Controller@index')->name('controller.index');
 //$router->any('any', function() {
 //    return 'any content. Server request method:'. $_SERVER['REQUEST_METHOD'];
 //});
 
-//$router->get('controller', 'Demo\Controller@index');
-
 $router->run();
 
-//dd($router->getRouteList());
+//print_r($router->getUrlByName('controller.index'));
+
+dd($router->getRouteList());

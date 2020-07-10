@@ -22,6 +22,11 @@ class Router
         $this->request->setBaseUrl($url);
     }
 
+    public function getBaseUrl()
+    {
+        return $this->request->getBaseUrl();
+    }
+
     public function get($param, $callback)
     {
         $this->registerRoute($param, $callback, HttpMethod::GET);
@@ -180,11 +185,37 @@ class Router
         return $this;
     }
 
+    public function name($string)
+    {
+        if (count($this->routerArray) == 0) {
+            return false;
+        }
+
+        $this->routerArray[count($this->routerArray) - 1]['name'] = $string;
+
+        return $this;
+    }
+
     private function addRouteToRouteArray(&$routeArray, $param, $method, $callback) {
         $routeArray[] = [
             'path' => '/'.ltrim($param, '/'),
             'method' => $method,
             'execute' => $callback,
+            'name' => '',
         ];
+    }
+
+    public function getUrlByName($string)
+    {
+        $url = '';
+
+        foreach ($this->routerArray as $route) {
+            if ($route['name'] == $string) {
+                $url = $route['path'];
+                break;
+            }
+        }
+
+        return $this->getBaseUrl().ltrim($url, '/');
     }
 }
