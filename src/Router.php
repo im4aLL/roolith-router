@@ -1,80 +1,107 @@
 <?php
 namespace Roolith;
 
+use Roolith\HttpConstants\HttpMethod;
+
 class Router
 {
-    private $requestMethod;
     private $routerArray;
-    private $baseUrl;
+    private $response;
+    private $request;
+    private $requestedUrl;
 
     public function __construct()
     {
-        $this->requestMethod = $_SERVER['REQUEST_METHOD'];
         $this->routerArray = [];
+        $this->response = new Response();
+        $this->request = new Request();
+    }
+
+    public function setBaseUrl($url)
+    {
+        $this->request->setBaseUrl($url);
     }
 
     public function get($param, $callback)
     {
-        if (!$param) {
-            return;
-        }
+        $this->registerRoute($param, $callback, HttpMethod::GET);
 
-        $route = [
-            'path' => ltrim($param, '/'),
-            'method' => 'GET',
-            'execute' => $callback,
-        ];
+        return $this;
+    }
 
-        $this->addToRouterArray($route);
+    public function post($param, $callback)
+    {
+        $this->registerRoute($param, $callback, HttpMethod::POST);
+
+        return $this;
+    }
+
+    public function put($param, $callback)
+    {
+        $this->registerRoute($param, $callback, HttpMethod::PUT);
+
+        return $this;
+    }
+
+    public function patch($param, $callback)
+    {
+        $this->registerRoute($param, $callback, HttpMethod::PATCH);
+
+        return $this;
+    }
+
+    public function delete($param, $callback)
+    {
+        $this->registerRoute($param, $callback, HttpMethod::DELETE);
 
         return $this;
     }
 
     public function run()
     {
-        switch ($this->requestMethod) {
-            case 'GET':
-                $this->executeGetMethod();
+        $this->requestedUrl = $this->request->getRequestedUrl();
+        $methodName = $this->request->getRequestMethod();
+
+        switch ($methodName) {
+            case HttpMethod::GET:
+            case HttpMethod::POST:
+            case HttpMethod::PUT:
+            case HttpMethod::PATCH:
+            case HttpMethod::DELETE:
+                $this->executeRouteMethod($methodName);
                 break;
         }
     }
 
-    protected function executeGetMethod()
+    protected function executeRouteMethod($methodName)
     {
-        $requestedUrl = $this->getRequestedUrl();
-        $getRequestRouter = $this->getRequestedRouter($requestedUrl);
+        $router = $this->getRequestedRouter($this->requestedUrl, $methodName);
 
-        if (is_callable($getRequestRouter['execute'])) {
-            call_user_func($getRequestRouter['execute']);
+        if (is_callable($router['execute'])) {
+            $content = call_user_func($router['execute']);
+            $this->response->body($content);
         }
     }
 
-    protected function getRequestedRouter($path)
+    protected function getRequestedRouter($path, $method)
     {
+        $selectedRoute = null;
+
         foreach ($this->routerArray as $route) {
-            if ($route['path'] == $path) {
-                return $route;
+            if ($route['path'] == $path && $route['method'] == $method) {
+                $selectedRoute = $route;
                 break;
             }
         }
-    }
 
-    protected function getRequestedUrl()
-    {
-        $currentUrl = $this->getCurrentUrl();
-        $actualUrl = rtrim(str_replace($this->baseUrl, '', $currentUrl), '/');
-        $actualUrl = ltrim($actualUrl, '/');
-
-        $actualUrlArray = explode('/', $actualUrl);
-        $actualUrlArray = array_map([$this, 'cleanUrlStringArray'], $actualUrlArray);
-        $actualUrlArray = array_filter($actualUrlArray, 'strlen');
-
-        return count($actualUrlArray) > 0 ? implode('/', $actualUrlArray) : '';
+        return $selectedRoute;
     }
 
     protected function addToRouterArray($route)
     {
         $this->routerArray[] = $route;
+
+        return $this;
     }
 
     public function getRouteList()
@@ -82,27 +109,34 @@ class Router
         return $this->routerArray;
     }
 
-    protected function getCurrentUrl()
+    private function registerRoute($param, $callback, $method)
     {
-        return "http://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
-    }
-
-    public function setBaseUrl($url)
-    {
-        $this->baseUrl = $url;
-    }
-
-    private function cleanUrlString($string)
-    {
-        return preg_replace("/[^a-zA-Z0-9-._]+/", "", $string);
-    }
-
-    private function cleanUrlStringArray($string)
-    {
-        if(strstr($string, '?')) {
-            $string = substr($string, 0, strpos($string, '?'));
+        if (!$param || !$callback) {
+            return $this;
         }
 
-        return $this->cleanUrlString($string);
+        $routeArray = [];
+
+        if (is_array($param)) {
+            foreach ($param as $urlParam) {
+                $routeArray[] = [
+                    'path' => ltrim($urlParam, '/'),
+                    'method' => $method,
+                    'execute' => $callback,
+                ];
+            }
+        } else {
+            $routeArray[] = [
+                'path' => ltrim($param, '/'),
+                'method' => $method,
+                'execute' => $callback,
+            ];
+        }
+
+        foreach ($routeArray as $route) {
+            $this->addToRouterArray($route);
+        }
+
+        return $this;
     }
 }
