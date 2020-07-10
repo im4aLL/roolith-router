@@ -38,7 +38,7 @@ class Request
         $actualUrlArray = array_map([$this, 'cleanUrlStringArray'], $actualUrlArray);
         $actualUrlArray = array_filter($actualUrlArray, 'strlen');
 
-        return count($actualUrlArray) > 0 ? implode('/', $actualUrlArray) : '';
+        return count($actualUrlArray) > 0 ? '/'.implode('/', $actualUrlArray) : '/';
     }
 
     protected function getCurrentUrl()

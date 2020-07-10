@@ -6,19 +6,26 @@ use Roolith\HttpConstants\HttpResponseCode;
 class Response
 {
     protected $statusCode;
+    protected $hasHeaderContentType;
 
-    public function __construct()
-    {
-        $this->statusCode = HttpResponseCode::OK;
+    public function __construct() {
+        $this->hasHeaderContentType = false;
     }
 
     public function setStatusCode($code = HttpResponseCode::OK)
     {
         $this->statusCode = $code;
+        http_response_code($code);
+
+        return $this;
     }
 
     public function body($content)
     {
+        if (!$this->statusCode) {
+            $this->setStatusCode(HttpResponseCode::OK);
+        }
+
         if (is_array($content) || is_object($content)) {
             echo $this->setHeaderJson()->outputJson($content);
         } else {
@@ -26,16 +33,32 @@ class Response
         }
     }
 
-    protected function setHeaderJson()
+    public function setHeaderJson()
     {
-        header('Content-Type: application/json; charset=UTF-8');
+        if (!$this->hasHeaderContentType) {
+            header('Content-Type: application/json; charset=UTF-8');
+            $this->hasHeaderContentType = true;
+        }
 
         return $this;
     }
 
-    protected function setHeaderHtml()
+    public function setHeaderHtml()
     {
-        header('Content-Type: text/html; charset=UTF-8');
+        if (!$this->hasHeaderContentType) {
+            header('Content-Type: text/html; charset=UTF-8');
+            $this->hasHeaderContentType = true;
+        }
+
+        return $this;
+    }
+
+    public function setHeaderPlain()
+    {
+        if (!$this->hasHeaderContentType) {
+            header('Content-Type: text/plain; charset=UTF-8');
+            $this->hasHeaderContentType = true;
+        }
 
         return $this;
     }

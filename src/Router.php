@@ -2,6 +2,7 @@
 namespace Roolith;
 
 use Roolith\HttpConstants\HttpMethod;
+use Roolith\HttpConstants\HttpResponseCode;
 
 class Router
 {
@@ -57,6 +58,33 @@ class Router
         return $this;
     }
 
+    public function options($param, $callback)
+    {
+        $this->registerRoute($param, $callback, HttpMethod::OPTIONS);
+
+        return $this;
+    }
+
+    public function match($array, $param, $callback)
+    {
+        foreach ($array as $methodName) {
+            if (in_array($methodName, HttpMethod::all())) {
+                $this->registerRoute($param, $callback, $methodName);
+            }
+        }
+
+        return $this;
+    }
+
+    public function any($param, $callback)
+    {
+        foreach (HttpMethod::all() as $methodName) {
+            $this->registerRoute($param, $callback, $methodName);
+        }
+
+        return $this;
+    }
+
     public function run()
     {
         $this->requestedUrl = $this->request->getRequestedUrl();
@@ -68,7 +96,12 @@ class Router
             case HttpMethod::PUT:
             case HttpMethod::PATCH:
             case HttpMethod::DELETE:
+            case HttpMethod::OPTIONS:
                 $this->executeRouteMethod($methodName);
+                break;
+
+            default:
+                $this->executeRouteMethod(HttpMethod::GET);
                 break;
         }
     }
@@ -77,9 +110,28 @@ class Router
     {
         $router = $this->getRequestedRouter($this->requestedUrl, $methodName);
 
+        if (!$router) {
+            $this->response->setStatusCode(HttpResponseCode::NOT_FOUND)
+                ->setHeaderPlain()
+                ->body("Route doesn't exists");
+        }
+
         if (is_callable($router['execute'])) {
             $content = call_user_func($router['execute']);
             $this->response->body($content);
+        } elseif (is_string($router['execute'])) {
+
+            $classMethodArray = explode('@', $router['execute']);
+            $className = $classMethodArray[0];
+            $classMethodName = $classMethodArray[1];
+
+            if (method_exists($className, $classMethodName)) {
+                $content = call_user_func([$className, $classMethodName]);
+                $this->response->body($content);
+            } else {
+                $this->response->setStatusCode(HttpResponseCode::NOT_FOUND)
+                    ->body("$classMethodName method doesn't exist in $className");
+            }
         }
     }
 
@@ -119,18 +171,10 @@ class Router
 
         if (is_array($param)) {
             foreach ($param as $urlParam) {
-                $routeArray[] = [
-                    'path' => ltrim($urlParam, '/'),
-                    'method' => $method,
-                    'execute' => $callback,
-                ];
+                $this->addRouteToRouteArray($routeArray, $urlParam, $method, $callback);
             }
         } else {
-            $routeArray[] = [
-                'path' => ltrim($param, '/'),
-                'method' => $method,
-                'execute' => $callback,
-            ];
+            $this->addRouteToRouteArray($routeArray, $param, $method, $callback);
         }
 
         foreach ($routeArray as $route) {
@@ -138,5 +182,13 @@ class Router
         }
 
         return $this;
+    }
+
+    private function addRouteToRouteArray(&$routeArray, $param, $method, $callback) {
+        $routeArray[] = [
+            'path' => '/'.ltrim($param, '/'),
+            'method' => $method,
+            'execute' => $callback,
+        ];
     }
 }
