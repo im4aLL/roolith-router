@@ -2,9 +2,13 @@
 namespace Roolith;
 
 use Roolith\HttpConstants\HttpResponseCode;
+use Roolith\Traits\EncoderTrait;
+use Roolith\Traits\HeaderTrait;
 
 class Response
 {
+    use HeaderTrait, EncoderTrait;
+
     protected $statusCode;
     protected $hasHeaderContentType;
 
@@ -20,7 +24,7 @@ class Response
         return $this;
     }
 
-    public function body($content)
+    public function body($content = '')
     {
         if (!$this->statusCode) {
             $this->setStatusCode(HttpResponseCode::OK);
@@ -36,7 +40,7 @@ class Response
     public function setHeaderJson()
     {
         if (!$this->hasHeaderContentType) {
-            header('Content-Type: application/json; charset=UTF-8');
+            $this->makeJsonHeader();
             $this->hasHeaderContentType = true;
         }
 
@@ -46,7 +50,7 @@ class Response
     public function setHeaderHtml()
     {
         if (!$this->hasHeaderContentType) {
-            header('Content-Type: text/html; charset=UTF-8');
+            $this->makeHtmlHeader();
             $this->hasHeaderContentType = true;
         }
 
@@ -56,7 +60,7 @@ class Response
     public function setHeaderPlain()
     {
         if (!$this->hasHeaderContentType) {
-            header('Content-Type: text/plain; charset=UTF-8');
+            $this->makePlainTextHeader();
             $this->hasHeaderContentType = true;
         }
 
@@ -73,27 +77,10 @@ class Response
         return $this->anythingToUtf8($content);
     }
 
-    protected function anythingToUtf8($var, $deep = TRUE) {
-        if (is_array($var)) {
-            foreach($var as $key => $value){
-                if($deep) {
-                    $var[$key] = $this->anythingToUtf8($value, $deep);
-                } elseif(!is_array($value) && !is_object($value) && !mb_detect_encoding($value, 'utf-8', true)) {
-                    $var[$key] = utf8_encode(strval($var));
-                }
-            }
-            return $var;
-        } elseif (is_object($var)) {
-            foreach($var as $key => $value){
-                if($deep) {
-                    $var->$key = $this->anythingToUtf8($value,$deep);
-                } elseif(!is_array($value) && !is_object($value) && !mb_detect_encoding($value,'utf-8',true)) {
-                    $var->$key = utf8_encode($var);
-                }
-            }
-            return $var;
-        } else {
-            return (!mb_detect_encoding($var,'utf-8',true)) ? utf8_encode($var) : $var;
-        }
+    public function errorResponse($message = 'Something went wrong')
+    {
+        $this->setStatusCode(HttpResponseCode::NOT_FOUND)
+            ->setHeaderPlain()
+            ->body($message);
     }
 }

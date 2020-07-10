@@ -46,12 +46,12 @@ class Request
         return "http://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
     }
 
-    private function cleanUrlString($string)
+    protected function cleanUrlString($string)
     {
         return preg_replace("/[^a-zA-Z0-9-._]+/", "", $string);
     }
 
-    private function cleanUrlStringArray($string)
+    protected function cleanUrlStringArray($string)
     {
         if(strstr($string, '?')) {
             $string = substr($string, 0, strpos($string, '?'));

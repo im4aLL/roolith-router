@@ -2,7 +2,6 @@
 namespace Roolith;
 
 use Roolith\HttpConstants\HttpMethod;
-use Roolith\HttpConstants\HttpResponseCode;
 
 class Router
 {
@@ -11,11 +10,11 @@ class Router
     private $request;
     private $requestedUrl;
 
-    public function __construct()
+    public function __construct(Request $request = null, Response $response = null)
     {
         $this->routerArray = [];
-        $this->response = new Response();
-        $this->request = new Request();
+        $this->response = $response ? $response : new Response();
+        $this->request = $request ? $request : new Request();
     }
 
     public function setBaseUrl($url)
@@ -111,9 +110,7 @@ class Router
         $router = $this->getRequestedRouter($this->requestedUrl, $methodName);
 
         if (!$router) {
-            $this->response->setStatusCode(HttpResponseCode::NOT_FOUND)
-                ->setHeaderPlain()
-                ->body("Route doesn't exists");
+            $this->response->errorResponse("Route doesn't exists");
         }
 
         if (is_callable($router['execute'])) {
@@ -129,8 +126,7 @@ class Router
                 $content = call_user_func([$className, $classMethodName]);
                 $this->response->body($content);
             } else {
-                $this->response->setStatusCode(HttpResponseCode::NOT_FOUND)
-                    ->body("$classMethodName method doesn't exist in $className");
+                $this->response->errorResponse("$classMethodName method doesn't exist in $className");
             }
         }
     }
