@@ -10,7 +10,7 @@ class Router
     private $request;
     private $requestedUrl;
 
-    public function __construct(Request $request = null, Response $response = null)
+    public function __construct(Response $response = null, Request $request = null)
     {
         $this->routerArray = [];
         $this->response = $response ? $response : new Response();
@@ -147,7 +147,7 @@ class Router
         }
 
         if (is_callable($router['execute'])) {
-            $content = call_user_func($router['execute']);
+            $content = isset($router['payload']) ? call_user_func_array($router['execute'], $router['payload']) : call_user_func($router['execute']);
             $this->response->body($content);
         } elseif (is_string($router['execute'])) {
 
@@ -156,7 +156,7 @@ class Router
             $classMethodName = $classMethodArray[1];
 
             if (method_exists($className, $classMethodName)) {
-                $content = call_user_func([$className, $classMethodName]);
+                $content = isset($router['payload']) ? call_user_func_array([$className, $classMethodName], $router['payload']) : call_user_func([$className, $classMethodName]);
                 $this->response->body($content);
             } else {
                 $this->response->errorResponse("$classMethodName method doesn't exist in $className");
@@ -173,9 +173,14 @@ class Router
                 if ($route['path'] == $path) {
                     $selectedRoute = $route;
                     break;
-                } elseif (strstr($route['path'], '{') && $this->matchPattern($route['path'], $this->request->getRequestedUrl())) {
-                    $selectedRoute = $route;
-                    break;
+                } elseif (strstr($route['path'], '{')) {
+                    $patternValue = $this->matchPattern($route['path'], $this->request->getRequestedUrl());
+
+                    if ($patternValue) {
+                        $selectedRoute = $route;
+                        $selectedRoute['payload'] = $patternValue;
+                        break;
+                    }
                 }
             }
         }
@@ -185,23 +190,52 @@ class Router
 
     protected function matchPattern($routerPath, $url)
     {
-        $result = false;
+        $result = null;
 
-        $pattern = "/{[^}]*}/";
-        preg_match_all($pattern, $routerPath, $matches);
-        $matchArray = $matches[0];
+        $findArray = [];
+        $replaceArray = [];
 
-        if (count($matchArray) == 0) {
-            return $result;
+        $routerPathArray = explode('/', $routerPath);
+        $routerPathArraySize = count($routerPathArray);
+        $urlArray = explode('/', $url);
+
+        for ($i = 0; $i < $routerPathArraySize; $i++) {
+            if ($routerPathArray[$i] != $urlArray[$i]) {
+                $findArray[] = $routerPathArray[$i];
+                $replaceArray[] = $urlArray[$i];
+            }
         }
 
-        $routerPattern = preg_replace([$pattern, '/\//'], ['[a-zA-Z0-9\_\-]+', '\/'], $routerPath);
-        $actualRouterPattern = "/^$routerPattern$/s";
-        preg_match($actualRouterPattern, $url, $patternMatch);
-
-        if (count($patternMatch) > 0) {
-            $result = true;
+        $replacedRouterPathArray = [];
+        foreach ($routerPathArray as $item) {
+            $index = array_search($item, $findArray);
+            if (is_numeric($index) && $index >= 0) {
+                $replacedRouterPathArray[] = $replaceArray[$index];
+            } else {
+                $replacedRouterPathArray[] = $item;
+            }
         }
+
+        $replacedRouterPath = implode('/', $replacedRouterPathArray);
+        if ($replacedRouterPath == $url) {
+            $result = $replaceArray;
+        }
+
+//        $pattern = "/{[^}]*}/";
+//        preg_match_all($pattern, $routerPath, $matches);
+//        $matchArray = $matches[0];
+//
+//        if (count($matchArray) == 0) {
+//            return $result;
+//        }
+
+//        $routerPattern = preg_replace([$pattern, '/\//'], ['[a-zA-Z0-9\_\-]+', '\/'], $routerPath);
+//        $actualRouterPattern = "/^$routerPattern$/s";
+//        preg_match($actualRouterPattern, $url, $patternMatch);
+//
+//        if (count($patternMatch) > 0) {
+//            $result = true;
+//        }
 
         return $result;
     }

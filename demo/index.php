@@ -21,8 +21,8 @@ $router->setBaseUrl('http://localhost/router/demo/');
 //    return ['name' => 'Test bangla char', 'age' => 45];
 //});
 //
-$router->get('/user/{userId}/edit/{another}', function() {
-    return 'get content. Server request method:'. $_SERVER['REQUEST_METHOD'];
+$router->get('/user/{userId}/edit/{another}', function($userId, $another) {
+    return 'get content {userId}: '.$userId.' {another}: '.$another.'. Server request method:'. $_SERVER['REQUEST_METHOD'];
 });
 //
 //$router->post('test', function() {
