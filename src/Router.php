@@ -121,6 +121,15 @@ class Router
     {
         $this->requestedUrl = $this->request->getRequestedUrl();
         $methodName = $this->request->getRequestMethod();
+        $router = $this->getRequestedRouter($this->requestedUrl, $methodName);
+
+        if (isset($router['middleware'])) {
+            $isProcessNext = call_user_func([$router['middleware'], 'process'], $this->request, $this->response);
+            if (!$isProcessNext) {
+                $this->response->errorResponse("Invalid request");
+                return $this;
+            }
+        }
 
         switch ($methodName) {
             case HttpMethod::GET:
@@ -129,21 +138,16 @@ class Router
             case HttpMethod::PATCH:
             case HttpMethod::DELETE:
             case HttpMethod::OPTIONS:
-                $this->executeRouteMethod($methodName);
-                break;
-
-            default:
-                $this->executeRouteMethod(HttpMethod::GET);
+                $this->executeRouteMethod($router);
                 break;
         }
     }
 
-    protected function executeRouteMethod($methodName)
+    protected function executeRouteMethod($router)
     {
-        $router = $this->getRequestedRouter($this->requestedUrl, $methodName);
-
         if (!$router) {
             $this->response->errorResponse("Route doesn't exists");
+            return $this;
         }
 
         if (is_callable($router['execute'])) {
@@ -162,6 +166,8 @@ class Router
                 $this->response->errorResponse("$classMethodName method doesn't exist in $className");
             }
         }
+
+        return $this;
     }
 
     protected function getRequestedRouter($path, $method)
@@ -219,6 +225,8 @@ class Router
         $replacedRouterPath = implode('/', $replacedRouterPathArray);
         if ($replacedRouterPath == $url) {
             $result = $replaceArray;
+
+            $this->request->setRequestedParam($findArray, $replaceArray);
         }
 
         return $result;
@@ -328,5 +336,16 @@ class Router
         }
 
         return $this->getBaseUrl().ltrim($url, '/');
+    }
+
+    public function middleware($middlewareClass)
+    {
+        if (count($this->routerArray) == 0) {
+            return false;
+        }
+
+        $this->routerArray[count($this->routerArray) - 1]['middleware'] = $middlewareClass;
+
+        return $this;
     }
 }

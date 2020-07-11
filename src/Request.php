@@ -5,6 +5,7 @@ class Request
 {
     private $baseUrl;
     private $requestMethod;
+    private $requestedParam;
 
     public function __construct()
     {
@@ -58,5 +59,24 @@ class Request
         }
 
         return $this->cleanUrlString($string);
+    }
+
+    public function setRequestedParam($paramArray, $paramValueArray)
+    {
+        $size = count($paramArray);
+
+        for ($i = 0; $i < $size; $i++) {
+            $param = str_replace(['{', '}'], '', $paramArray[$i]);
+            $this->requestedParam[$param] = $paramValueArray[$i];
+        }
+    }
+
+    public function getParam($paramKey)
+    {
+        if (isset($this->requestedParam[$paramKey])) {
+            return $this->requestedParam[$paramKey];
+        }
+
+        return false;
     }
 }
