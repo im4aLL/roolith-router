@@ -7,4 +7,9 @@ class Controller
     {
         return 'index method';
     }
+
+    public function paramText()
+    {
+        return 'paramText: ';
+    }
 }

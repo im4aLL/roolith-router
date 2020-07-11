@@ -174,7 +174,7 @@ class Router
                     $selectedRoute = $route;
                     break;
                 } elseif (strstr($route['path'], '{')) {
-                    $patternValue = $this->matchPattern($route['path'], $this->request->getRequestedUrl());
+                    $patternValue = $this->matchPlain($route['path'], $this->request->getRequestedUrl());
 
                     if ($patternValue) {
                         $selectedRoute = $route;
@@ -188,9 +188,9 @@ class Router
         return $selectedRoute;
     }
 
-    protected function matchPattern($routerPath, $url)
+    protected function matchPlain($routerPath, $url)
     {
-        $result = null;
+        $result = false;
 
         $findArray = [];
         $replaceArray = [];
@@ -200,7 +200,7 @@ class Router
         $urlArray = explode('/', $url);
 
         for ($i = 0; $i < $routerPathArraySize; $i++) {
-            if ($routerPathArray[$i] != $urlArray[$i]) {
+            if (isset($routerPathArray[$i]) && isset($urlArray[$i]) && $routerPathArray[$i] != $urlArray[$i]) {
                 $findArray[] = $routerPathArray[$i];
                 $replaceArray[] = $urlArray[$i];
             }
@@ -221,21 +221,42 @@ class Router
             $result = $replaceArray;
         }
 
-//        $pattern = "/{[^}]*}/";
-//        preg_match_all($pattern, $routerPath, $matches);
-//        $matchArray = $matches[0];
-//
-//        if (count($matchArray) == 0) {
-//            return $result;
-//        }
+        return $result;
+    }
 
-//        $routerPattern = preg_replace([$pattern, '/\//'], ['[a-zA-Z0-9\_\-]+', '\/'], $routerPath);
-//        $actualRouterPattern = "/^$routerPattern$/s";
-//        preg_match($actualRouterPattern, $url, $patternMatch);
-//
-//        if (count($patternMatch) > 0) {
-//            $result = true;
-//        }
+    protected function matchPattern($routerPath, $url)
+    {
+        $result = false;
+
+        $pattern = "/{[^}]*}/";
+        preg_match_all($pattern, $routerPath, $matches);
+        $matchArray = $matches[0];
+
+        if (count($matchArray) == 0) {
+            return $result;
+        }
+
+        $routerPattern = preg_replace([$pattern, '/\//'], ['[a-zA-Z0-9\_\-]+', '\/'], $routerPath);
+        $actualRouterPattern = "/^$routerPattern$/s";
+        preg_match($actualRouterPattern, $url, $patternMatch);
+
+        if (count($patternMatch) == 0) {
+            return $result;
+        }
+
+        $valueArray = [];
+
+        $routerPathArray = explode('/', $routerPath);
+        $routerPathArraySize = count($routerPathArray);
+        $urlArray = explode('/', $url);
+
+        for ($i = 0; $i < $routerPathArraySize; $i++) {
+            if ($routerPathArray[$i] != $urlArray[$i]) {
+                $valueArray[] = $urlArray[$i];
+            }
+        }
+
+        $result = $valueArray;
 
         return $result;
     }
