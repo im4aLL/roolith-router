@@ -17,9 +17,9 @@ $router->setBaseUrl('http://localhost/router/demo/');
 $router->get('/', function() {
     return 'default. Server request method:'. $_SERVER['REQUEST_METHOD'];
 });
-$router->get('test/{test}', function() {
-    return 'Get test route content. Server request method:'. $_SERVER['REQUEST_METHOD'];
-})->middleware(\Demo\AuthMiddleware::class);
+//$router->get('test/{test}', function() {
+//    return 'Get test route content. Server request method:'. $_SERVER['REQUEST_METHOD'];
+//})->middleware(\Demo\AuthMiddleware::class);
 //
 //$router->get(['about', 'contact'], function() {
 //    return ['name' => 'Test bangla char', 'age' => 45];
@@ -54,7 +54,7 @@ $router->get('test/{test}', function() {
 //});
 //
 
-$router->get('controller', 'Demo\Controller@index')->name('controller.index');
+//$router->get('controller', 'Demo\Controller@index')->name('controller.index');
 //$router->any('any', function() {
 //    return 'any content. Server request method:'. $_SERVER['REQUEST_METHOD'];
 //});
@@ -62,6 +62,12 @@ $router->get('controller', 'Demo\Controller@index')->name('controller.index');
 //$router->crud('/crud', function () {
 //    return 'crud content. Server request method:'. $_SERVER['REQUEST_METHOD'];
 //});
+
+$router->redirect('/redirect', '/redirected');
+$router->get('/redirected', function (){
+    return 'redirected!';
+});
+$router->redirect('/redirect-another', 'http://habibhadi.com');
 
 $router->run();
 

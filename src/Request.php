@@ -10,6 +10,7 @@ class Request
     public function __construct()
     {
         $this->requestMethod = $_SERVER['REQUEST_METHOD'];
+        $this->requestedParam = [];
     }
 
     public function setBaseUrl($url)

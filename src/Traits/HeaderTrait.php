@@ -17,4 +17,9 @@ trait HeaderTrait
     {
         header('Content-Type: text/plain; charset=UTF-8');
     }
+
+    public function redirect($url)
+    {
+        header("Location: $url");
+    }
 }

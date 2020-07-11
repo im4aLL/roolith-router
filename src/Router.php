@@ -2,6 +2,7 @@
 namespace Roolith;
 
 use Roolith\HttpConstants\HttpMethod;
+use Roolith\HttpConstants\HttpResponseCode;
 
 class Router
 {
@@ -117,6 +118,13 @@ class Router
         return $this;
     }
 
+    public function redirect($fromUrl, $toUrl, $statusCode = HttpResponseCode::MOVED_PERMANENTLY)
+    {
+        $this->registerRedirectRoute($fromUrl, $toUrl, $statusCode);
+
+        return $this;
+    }
+
     public function run()
     {
         $this->requestedUrl = $this->request->getRequestedUrl();
@@ -141,6 +149,8 @@ class Router
                 $this->executeRouteMethod($router);
                 break;
         }
+
+        return $this;
     }
 
     protected function executeRouteMethod($router)
@@ -150,11 +160,16 @@ class Router
             return $this;
         }
 
-        if (is_callable($router['execute'])) {
+        if (isset($router['redirect'])) {
+            $this->response->setStatusCode($router['code']);
+            $this->response->redirect($router['redirect']);
+            return $this;
+        }
+
+        if (isset($router['execute']) && is_callable($router['execute'])) {
             $content = isset($router['payload']) ? call_user_func_array($router['execute'], $router['payload']) : call_user_func($router['execute']);
             $this->response->body($content);
-        } elseif (is_string($router['execute'])) {
-
+        } elseif (isset($router['execute']) && is_string($router['execute'])) {
             $classMethodArray = explode('@', $router['execute']);
             $className = $classMethodArray[0];
             $classMethodName = $classMethodArray[1];
@@ -265,6 +280,7 @@ class Router
         }
 
         $result = $valueArray;
+        $this->request->setRequestedParam($matchArray, $valueArray);
 
         return $result;
     }
@@ -311,6 +327,27 @@ class Router
             'execute' => $callback,
             'name' => $name,
         ];
+    }
+
+    private function registerRedirectRoute($fromUrl, $toUrl, $statusCode)
+    {
+        if (strpos($toUrl, 'http') === 0) {
+            $redirectUrl = $toUrl;
+        } else {
+            $redirectUrl = $this->getBaseUrl().ltrim($toUrl, '/');
+            dd($redirectUrl);
+        }
+
+        $route = [
+            'path' => '/'.ltrim($fromUrl, '/'),
+            'redirect' => $redirectUrl,
+            'method' => HttpMethod::GET,
+            'code' => $statusCode,
+        ];
+
+        $this->addToRouterArray($route);
+
+        return $this;
     }
 
     public function name($string)
