@@ -63,11 +63,15 @@ $router->get('/', function() {
 //    return 'crud content. Server request method:'. $_SERVER['REQUEST_METHOD'];
 //});
 
-$router->redirect('/redirect', '/redirected');
-$router->get('/redirected', function (){
-    return 'redirected!';
+//$router->redirect('/redirect', '/redirected');
+//$router->get('/redirected', function (){
+//    return 'redirected!';
+//});
+//$router->redirect('/redirect-another', 'http://habibhadi.com');
+
+$router->get('name/{name?}', function($name = 'Default name') {
+    return "Your name is - $name";
 });
-$router->redirect('/redirect-another', 'http://habibhadi.com');
 
 $router->run();
 

@@ -321,12 +321,27 @@ class Router
     }
 
     private function addRouteToRouteArray(&$routeArray, $param, $method, $callback, $name = '') {
-        $routeArray[] = [
-            'path' => '/'.ltrim($param, '/'),
-            'method' => $method,
-            'execute' => $callback,
-            'name' => $name,
-        ];
+        if (strstr($param, '?')) {
+            $paramArray = explode('/', $param);
+            $size = count($paramArray);
+
+            $modifiedParamArray = [];
+            for ($i = 0; $i < $size; $i++) {
+                if (strstr($paramArray[$i], '?')) {
+                    $this->addRouteToRouteArray($routeArray, implode('/', $modifiedParamArray), $method, $callback, $name);
+                    $this->addRouteToRouteArray($routeArray, str_replace('?', '', $param), $method, $callback, $name);
+                } else {
+                    $modifiedParamArray[] = $paramArray[$i];
+                }
+            }
+        } else {
+            $routeArray[] = [
+                'path' => '/'.ltrim($param, '/'),
+                'method' => $method,
+                'execute' => $callback,
+                'name' => $name,
+            ];
+        }
     }
 
     private function registerRedirectRoute($fromUrl, $toUrl, $statusCode)
