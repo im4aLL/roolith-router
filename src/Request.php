@@ -80,4 +80,9 @@ class Request
 
         return false;
     }
+
+    public function getUrlParam($paramKey)
+    {
+        return isset($_GET[$paramKey]) ? $this->cleanUrlString($_GET[$paramKey]) : null;
+    }
 }
