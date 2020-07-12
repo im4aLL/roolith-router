@@ -69,8 +69,18 @@ $router->get('/', function() {
 //});
 //$router->redirect('/redirect-another', 'http://habibhadi.com');
 
-$router->get('name/{name?}', function($name = 'Default name') {
-    return "Your name is - $name";
+//$router->get('name/{name?}', function($name = 'Default name') {
+//    return "Your name is - $name";
+//});
+
+$router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => 'user/{userId}', 'namePrefix' => 'user.'], function () use ($router) {
+    $router->get('profile', function ($userId){
+        return "profile route: User id: $userId";
+    })->name('profile');
+
+    $router->get('action/{actionId}', function ($userId, $actionId){
+        return "action route: User id: $userId and action id $actionId";
+    })->name('action');
 });
 
 $router->run();

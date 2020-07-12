@@ -10,12 +10,14 @@ class Router
     private $response;
     private $request;
     private $requestedUrl;
+    private $groupSettings;
 
     public function __construct(Response $response = null, Request $request = null)
     {
         $this->routerArray = [];
         $this->response = $response ? $response : new Response();
         $this->request = $request ? $request : new Request();
+        $this->groupSettings = [];
     }
 
     public function setBaseUrl($url)
@@ -26,6 +28,21 @@ class Router
     public function getBaseUrl()
     {
         return $this->request->getBaseUrl();
+    }
+
+    public function getGroupSettings()
+    {
+        return count($this->groupSettings) > 0 ? $this->groupSettings : false;
+    }
+
+    public function setGroupSettings($groupSettings)
+    {
+        $this->groupSettings = $groupSettings;
+    }
+
+    public function resetGroupSettings()
+    {
+        $this->groupSettings = [];
     }
 
     public function get($param, $callback)
@@ -123,6 +140,12 @@ class Router
         $this->registerRedirectRoute($fromUrl, $toUrl, $statusCode);
 
         return $this;
+    }
+
+    public function group($settings, $callback)
+    {
+        $this->setGroupSettings($settings);
+        call_user_func($callback);
     }
 
     public function run()
@@ -313,11 +336,32 @@ class Router
             $this->addRouteToRouteArray($routeArray, $param, $method, $callback, $name);
         }
 
+        $groupSettings = $this->getGroupSettings();
+
         foreach ($routeArray as $route) {
+            if ($groupSettings) {
+                $this->addGroupSettingsToRoute($route, $groupSettings);
+            }
+
             $this->addToRouterArray($route);
         }
 
         return $this;
+    }
+
+    private function addGroupSettingsToRoute(&$route, $groupSettings)
+    {
+        if (isset($groupSettings['middleware'])) {
+            $route['middleware'] = $groupSettings['middleware'];
+        }
+
+        if (isset($groupSettings['urlPrefix'])) {
+            $route['path'] = '/'.ltrim($groupSettings['urlPrefix'], '/').$route['path'];
+        }
+
+        if (isset($groupSettings['namePrefix'])) {
+            $route['name'] = $groupSettings['namePrefix'];
+        }
     }
 
     private function addRouteToRouteArray(&$routeArray, $param, $method, $callback, $name = '') {
@@ -371,7 +415,8 @@ class Router
             return false;
         }
 
-        $this->routerArray[count($this->routerArray) - 1]['name'] = $string;
+        $namePrefix = $this->routerArray[count($this->routerArray) - 1]['name'] ? $this->routerArray[count($this->routerArray) - 1]['name'] : '';
+        $this->routerArray[count($this->routerArray) - 1]['name'] = $namePrefix.$string;
 
         return $this;
     }
