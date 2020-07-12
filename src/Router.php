@@ -28,13 +28,6 @@ class Router
     private $request;
 
     /**
-     * Current requested URL without base URL
-     *
-     * @var string
-     */
-    private $requestedUrl;
-
-    /**
      * Group route settings value
      *
      * @var array
@@ -259,7 +252,7 @@ class Router
                     $this->registerRoute($param.'/{param}', $this->crudCallback($callback, 'update'), $methodName, $namePrefix.'.update');
                 break;
                 case HttpMethod::DELETE:
-                    $this->registerRoute($param.'/{param}', $this->crudCallback($callback, 'destory'), $methodName, $namePrefix.'.destroy');
+                    $this->registerRoute($param.'/{param}', $this->crudCallback($callback, 'destroy'), $methodName, $namePrefix.'.destroy');
                     break;
             }
         }
@@ -317,9 +310,8 @@ class Router
      */
     public function run()
     {
-        $this->requestedUrl = $this->request->getRequestedUrl();
         $methodName = $this->request->getRequestMethod();
-        $router = $this->getRequestedRouter($this->requestedUrl, $methodName);
+        $router = $this->getRequestedRouter($this->request->getRequestedUrl(), $methodName);
 
         if (isset($router['middleware'])) {
             $isProcessNext = call_user_func([$router['middleware'], 'process'], $this->request, $this->response);
@@ -398,7 +390,7 @@ class Router
                     $selectedRoute = $route;
                     break;
                 } elseif (strstr($route['path'], '{')) {
-                    $patternValue = $this->matchPlain($route['path'], $this->request->getRequestedUrl());
+                    $patternValue = $this->matchPlain($route['path'], $path);
 
                     if ($patternValue) {
                         $selectedRoute = $route;
@@ -639,7 +631,6 @@ class Router
             $redirectUrl = $toUrl;
         } else {
             $redirectUrl = $this->getBaseUrl().ltrim($toUrl, '/');
-            dd($redirectUrl);
         }
 
         $route = [

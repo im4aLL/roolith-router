@@ -8,7 +8,7 @@
             "email": "hadicse@gmail.com"
         }
     ],
-    "require": {
+    "require-dev": {
         "phpunit/phpunit": "^9.2"
     },
     "autoload": {
