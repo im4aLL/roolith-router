@@ -10,6 +10,11 @@ class HttpMethod
     const DELETE = 'DELETE';
     const OPTIONS = 'OPTIONS';
 
+    /**
+     * Get all available HTTP method names
+     *
+     * @return array
+     */
     public static function all() {
         return [
             self::GET,

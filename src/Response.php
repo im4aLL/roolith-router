@@ -9,13 +9,34 @@ class Response
 {
     use HeaderTrait, EncoderTrait;
 
+    /**
+     * HTTP status code
+     *
+     * @var int
+     */
     protected $statusCode;
+
+    /**
+     * If header content type already set
+     *
+     * @var bool
+     */
     protected $hasHeaderContentType;
 
-    public function __construct() {
+    /**
+     * Response constructor.
+     */
+    public function __construct()
+    {
         $this->hasHeaderContentType = false;
     }
 
+    /**
+     * Set HTTP response status
+     *
+     * @param int $code
+     * @return $this
+     */
     public function setStatusCode($code = HttpResponseCode::OK)
     {
         $this->statusCode = $code;
@@ -24,6 +45,12 @@ class Response
         return $this;
     }
 
+    /**
+     * Show response body
+     *
+     * @param string $content
+     * @return $this
+     */
     public function body($content = '')
     {
         if (!$this->statusCode) {
@@ -35,8 +62,15 @@ class Response
         } else {
             echo $this->setHeaderHtml()->outputHtml($content);
         }
+
+        return $this;
     }
 
+    /**
+     * Set content type JSON for header
+     *
+     * @return $this
+     */
     public function setHeaderJson()
     {
         if (!$this->hasHeaderContentType) {
@@ -47,6 +81,11 @@ class Response
         return $this;
     }
 
+    /**
+     * Set content type HTML for header
+     *
+     * @return $this
+     */
     public function setHeaderHtml()
     {
         if (!$this->hasHeaderContentType) {
@@ -57,6 +96,11 @@ class Response
         return $this;
     }
 
+    /**
+     * Set content type PLAIN TEXT for header
+     *
+     * @return $this
+     */
     public function setHeaderPlain()
     {
         if (!$this->hasHeaderContentType) {
@@ -67,20 +111,40 @@ class Response
         return $this;
     }
 
+    /**
+     * Array or Object to JSON
+     *
+     * @param $content
+     * @return false|string
+     */
     protected function outputJson($content)
     {
         return json_encode($this->anythingToUtf8($content));
     }
 
+    /**
+     * HTML content to UTF8 content
+     *
+     * @param $content
+     * @return array|string
+     */
     protected function outputHtml($content)
     {
         return $this->anythingToUtf8($content);
     }
 
+    /**
+     * Error response
+     *
+     * @param string $message
+     * @return $this
+     */
     public function errorResponse($message = 'Something went wrong')
     {
         $this->setStatusCode(HttpResponseCode::NOT_FOUND)
             ->setHeaderPlain()
             ->body($message);
+
+        return $this;
     }
 }

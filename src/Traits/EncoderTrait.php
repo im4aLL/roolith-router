@@ -3,6 +3,13 @@ namespace Roolith\Traits;
 
 trait EncoderTrait
 {
+    /**
+     * Convert array or object or string to UTF8
+     *
+     * @param $var
+     * @param bool $deep
+     * @return array|string
+     */
     public function anythingToUtf8($var, $deep = TRUE) {
         if (is_array($var)) {
             foreach($var as $key => $value){
