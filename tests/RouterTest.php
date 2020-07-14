@@ -4,7 +4,7 @@ use Roolith\HttpConstants\HttpMethod;
 use Roolith\Request;
 use Roolith\Router;
 
-class DemoRouter extends Router
+class RouterForTest extends Router
 {
     public function getRequestedRouter($path, $method)
     {
@@ -345,7 +345,7 @@ class RouterTest extends TestCase
 
     public function testShouldMatchRouterByPath()
     {
-        $router = new DemoRouter();
+        $router = new RouterForTest();
         $router->get('test', function() {
             return 'Done!';
         });
@@ -357,7 +357,7 @@ class RouterTest extends TestCase
 
     public function testShouldMatchRouterByPattern()
     {
-        $router = new DemoRouter();
+        $router = new RouterForTest();
         $router->get('user/{id}', function() {
             return 'Done!';
         });
@@ -369,7 +369,7 @@ class RouterTest extends TestCase
 
     public function testShouldMatchPatternWithGivenUrl()
     {
-        $router = new DemoRouter();
+        $router = new RouterForTest();
 
         $isMatch = $router->matchPlain('/user/{id}/edit', '/user/1/edit');
         $this->assertIsArray($isMatch);
@@ -418,7 +418,7 @@ class RouterTest extends TestCase
         $request = $this->getMockBuilder(Request::class)->onlyMethods(['getCurrentUrl'])->getMock();
         $request->method('getCurrentUrl')->willReturn('http://habibhadi.com/');
 
-        $router = $this->getMockBuilder(DemoRouter::class)->setConstructorArgs([null, $request])->onlyMethods(['executeRouteMethod'])->getMock();
+        $router = $this->getMockBuilder(RouterForTest::class)->setConstructorArgs([null, $request])->onlyMethods(['executeRouteMethod'])->getMock();
         $router->expects($this->once())->method('executeRouteMethod')->with(null);
 
         $router->run();
