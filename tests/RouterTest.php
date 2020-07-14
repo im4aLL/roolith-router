@@ -1,6 +1,7 @@
 <?php
 use PHPUnit\Framework\TestCase;
 use Roolith\HttpConstants\HttpMethod;
+use Roolith\Request;
 use Roolith\Router;
 
 class DemoRouter extends Router
@@ -18,6 +19,11 @@ class DemoRouter extends Router
     public function matchPattern($routerPath, $url)
     {
         return parent::matchPattern($routerPath, $url);
+    }
+    
+    public function executeRouteMethod($router)
+    {
+        return parent::executeRouteMethod($router);
     }
 }
 
@@ -405,6 +411,17 @@ class RouterTest extends TestCase
         $route = $this->getLastRoute();
 
         $this->assertEquals('DemoMiddleware', $route['middleware']);
+    }
+
+    public function testShouldRouteRunCallExecuteRouteMethodOnce()
+    {
+        $request = $this->getMockBuilder(Request::class)->onlyMethods(['getCurrentUrl'])->getMock();
+        $request->method('getCurrentUrl')->willReturn('http://habibhadi.com/');
+
+        $router = $this->getMockBuilder(DemoRouter::class)->setConstructorArgs([null, $request])->onlyMethods(['executeRouteMethod'])->getMock();
+        $router->expects($this->once())->method('executeRouteMethod')->with(null);
+
+        $router->run();
     }
 
 }
