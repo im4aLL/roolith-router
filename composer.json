@@ -13,5 +13,8 @@
     },
     "autoload": {
         "psr-4": {"Roolith\\": "src/"}
-    }
+    },
+    "license": "MIT",
+	"version": "1.0.0",
+	"minimum-stability": "stable"
 }
