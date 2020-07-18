@@ -194,7 +194,7 @@ Response
  ✔ Should output json
  ✔ Should output html
  ✔ Should have error response
-
+Something went wrong
 Router
  ✔ Should initialize router array
  ✔ Should have group settings array
@@ -205,5 +205,25 @@ Router
  ✔ Should able to add put route
  ✔ Should able to add patch route
  ✔ Should able to add delete route
- ✔ Should able to add options r
+ ✔ Should able to add options route
+ ✔ Should able to add multiple method route at once
+ ✔ Should able to add wildcard route
+ ✔ Should able to add crud route
+ ✔ Should have default route for crud
+ ✔ Should have create route for crud
+ ✔ Should have show route for crud
+ ✔ Should have edit route for crud
+ ✔ Should have post route for crud
+ ✔ Should have update route for crud
+ ✔ Should have delete route for crud
+ ✔ Should automatic define method name for controller for crud
+ ✔ Should able to add redirect route
+ ✔ Should able to group routes
+ ✔ Should match router by path
+ ✔ Should match router by pattern
+ ✔ Should match pattern with given url
+ ✔ Should add name to route
+ ✔ Should get url by name
+ ✔ Should add middleware to route
+ ✔ Should route run call execute route method once
 ```
