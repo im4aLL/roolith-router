@@ -32,6 +32,16 @@ class Response
     }
 
     /**
+     * If header content type already set
+     *
+     * @return bool
+     */
+    public function hasHeaderContentType()
+    {
+        return $this->hasHeaderContentType;
+    }
+
+    /**
      * Set HTTP response status
      *
      * @param int $code
@@ -46,6 +56,16 @@ class Response
     }
 
     /**
+     * Get status code
+     *
+     * @return int
+     */
+    public function getStatusCode()
+    {
+        return $this->statusCode;
+    }
+
+    /**
      * Show response body
      *
      * @param string $content
@@ -53,7 +73,7 @@ class Response
      */
     public function body($content = '')
     {
-        if (!$this->statusCode) {
+        if (!$this->getStatusCode()) {
             $this->setStatusCode(HttpResponseCode::OK);
         }
 
@@ -73,7 +93,7 @@ class Response
      */
     public function setHeaderJson()
     {
-        if (!$this->hasHeaderContentType) {
+        if (!$this->hasHeaderContentType()) {
             $this->makeJsonHeader();
             $this->hasHeaderContentType = true;
         }
@@ -88,7 +108,7 @@ class Response
      */
     public function setHeaderHtml()
     {
-        if (!$this->hasHeaderContentType) {
+        if (!$this->hasHeaderContentType()) {
             $this->makeHtmlHeader();
             $this->hasHeaderContentType = true;
         }
@@ -103,7 +123,7 @@ class Response
      */
     public function setHeaderPlain()
     {
-        if (!$this->hasHeaderContentType) {
+        if (!$this->hasHeaderContentType()) {
             $this->makePlainTextHeader();
             $this->hasHeaderContentType = true;
         }

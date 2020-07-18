@@ -11,8 +11,10 @@ function dd($var) {
     echo '</pre>';
 }
 
-$router = new Router();
-$router->setBaseUrl('http://localhost/router/demo/');
+$router = new Router([
+    'base_url' => 'http://localhost/router/demo/',
+]);
+//$router->setBaseUrl('http://localhost/router/demo/');
 
 $router->get('/', function() {
     return 'default. Server request method:'. $_SERVER['REQUEST_METHOD'];

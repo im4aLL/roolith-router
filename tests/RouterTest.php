@@ -418,7 +418,7 @@ class RouterTest extends TestCase
         $request = $this->getMockBuilder(Request::class)->onlyMethods(['getCurrentUrl'])->getMock();
         $request->method('getCurrentUrl')->willReturn('http://habibhadi.com/');
 
-        $router = $this->getMockBuilder(RouterForTest::class)->setConstructorArgs([null, $request])->onlyMethods(['executeRouteMethod'])->getMock();
+        $router = $this->getMockBuilder(RouterForTest::class)->setConstructorArgs([[], null, $request])->onlyMethods(['executeRouteMethod'])->getMock();
         $router->expects($this->once())->method('executeRouteMethod')->with(null);
 
         $router->run();

@@ -10,15 +10,18 @@ class Router extends RouterBase implements RouterInterface
     /**
      * Router constructor.
      *
+     * @param array $settings
      * @param Response|null $response
      * @param Request|null $request
      */
-    public function __construct(Response $response = null, Request $request = null)
+    public function __construct($settings = [], Response $response = null, Request $request = null)
     {
         $response = $response ?? new Response();
         $request = $request ?? new Request();
 
         parent::__construct($response, $request);
+
+        $this->applySettings($settings);
     }
 
     /**
@@ -211,11 +214,14 @@ class Router extends RouterBase implements RouterInterface
      *
      * @param $settings
      * @param $callback
+     * @return Router
      */
     public function group($settings, $callback)
     {
         $this->setGroupSettings($settings);
         call_user_func($callback);
+
+        return $this;
     }
 
     /**
@@ -409,6 +415,21 @@ class Router extends RouterBase implements RouterInterface
         }
 
         $this->routerArray[count($this->routerArray) - 1]['middleware'] = $middlewareClass;
+
+        return $this;
+    }
+
+    /**
+     * Apply settings
+     *
+     * @param $settings
+     * @return $this
+     */
+    private function applySettings($settings)
+    {
+        if (isset($settings['base_url'])) {
+            $this->setBaseUrl($settings['base_url']);
+        }
 
         return $this;
     }
