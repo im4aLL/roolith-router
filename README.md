@@ -167,3 +167,43 @@ $router->getRouteList();
 ```php
 $router->getUrlByName('controller.index');
 ```
+
+#### For development
+```
+./vendor/bin/phpunit --testdox tests --stderr
+```
+
+Expected unit test result
+```
+Request
+ ✔ Should get current url
+ ✔ Should able to set base url
+ ✔ Should get requested method
+ ✔ Should get requested url without base url
+ ✔ Should remove non allowed character from url string
+ ✔ Should able to set and get request param
+
+Response
+ ✔ Should have header content type set to false
+ ✔ Should able to set status code
+ ✔ Should invoke once output html method if content is html
+ ✔ Should invoke once output json method if content is array
+ ✔ Should set json header
+ ✔ Should set html header
+ ✔ Should set plain header
+ ✔ Should output json
+ ✔ Should output html
+ ✔ Should have error response
+
+Router
+ ✔ Should initialize router array
+ ✔ Should have group settings array
+ ✔ Should able to set group settings
+ ✔ Should able to reset group settings
+ ✔ Should able to add get route
+ ✔ Should able to add post route
+ ✔ Should able to add put route
+ ✔ Should able to add patch route
+ ✔ Should able to add delete route
+ ✔ Should able to add options r
+```
