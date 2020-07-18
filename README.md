@@ -60,10 +60,17 @@ $router->get('/user/{userId}/edit/{another}', function($userId, $another) {
 });
 ```
 
-#### Multiple method at once
+#### Multiple route at once
 ```php
 $router->get(['user', 'profile'], function() {
     return ['name' => 'John', 'age' => 45];
+});
+```
+
+#### Multiple method at once
+```php
+$router->match(['GET', 'POST'], '/user', function() {
+    return 'GET POST content.';
 });
 ```
 
