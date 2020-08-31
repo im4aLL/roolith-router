@@ -126,7 +126,7 @@ abstract class RouterBase
             $classMethodName = $classMethodArray[1];
 
             if (method_exists($className, $classMethodName)) {
-                $content = isset($router['payload']) ? call_user_func_array([$className, $classMethodName], $router['payload']) : call_user_func([$className, $classMethodName]);
+                $content = isset($router['payload']) ? call_user_func_array([new $className, $classMethodName], $router['payload']) : call_user_func([new $className, $classMethodName]);
                 $this->response->body($content);
             } else {
                 $this->response->errorResponse("$classMethodName method doesn't exist in $className");

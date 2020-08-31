@@ -12,13 +12,16 @@ function dd($var) {
 }
 
 $router = new Router([
-    'base_url' => 'http://localhost/router/demo/',
+    'base_url' => 'http://localhost/roolith-router/demo/',
 ]);
 //$router->setBaseUrl('http://localhost/router/demo/');
 
-$router->get('/', function() {
-    return 'default. Server request method:'. $_SERVER['REQUEST_METHOD'];
-});
+$router->get('/', 'Demo\Controller@index');
+
+//$router->get('/', function() {
+//    return 'default. Server request method:'. $_SERVER['REQUEST_METHOD'];
+//});
+
 //$router->get('test/{test}', function() {
 //    return 'Get test route content. Server request method:'. $_SERVER['REQUEST_METHOD'];
 //})->middleware(\Demo\AuthMiddleware::class);
@@ -75,18 +78,18 @@ $router->get('/', function() {
 //    return "Your name is - $name";
 //});
 
-$router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => 'user/{userId}', 'namePrefix' => 'user.'], function () use ($router) {
-    $router->get('profile', function ($userId){
-        return "profile route: User id: $userId";
-    })->name('profile');
-
-    $router->get('action/{actionId}', function ($userId, $actionId){
-        return "action route: User id: $userId and action id $actionId";
-    })->name('action');
-});
+//$router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => 'user/{userId}', 'namePrefix' => 'user.'], function () use ($router) {
+//    $router->get('profile', function ($userId){
+//        return "profile route: User id: $userId";
+//    })->name('profile');
+//
+//    $router->get('action/{actionId}', function ($userId, $actionId){
+//        return "action route: User id: $userId and action id $actionId";
+//    })->name('action');
+//});
 
 $router->run();
 
 //print_r($router->getUrlByName('controller.index'));
 
-dd($router->getRouteList());
+//dd($router->getRouteList());

@@ -5,7 +5,7 @@ class Controller
 {
     public function index()
     {
-        return 'index method';
+        return $this->paramText();
     }
 
     public function paramText()
