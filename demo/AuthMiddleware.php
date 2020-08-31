@@ -1,9 +1,9 @@
 <?php
 namespace Demo;
 
-use Roolith\Middleware;
-use Roolith\Request;
-use Roolith\Response;
+use Roolith\Route\Middleware;
+use Roolith\Route\Request;
+use Roolith\Route\Response;
 
 class AuthMiddleware extends Middleware
 {

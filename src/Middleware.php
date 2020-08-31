@@ -1,5 +1,5 @@
 <?php
-namespace Roolith;
+namespace Roolith\Route;
 
 abstract class Middleware
 {

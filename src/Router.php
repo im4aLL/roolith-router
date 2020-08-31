@@ -1,9 +1,9 @@
 <?php
-namespace Roolith;
+namespace Roolith\Route;
 
-use Roolith\HttpConstants\HttpMethod;
-use Roolith\HttpConstants\HttpResponseCode;
-use Roolith\Interfaces\RouterInterface;
+use Roolith\Route\HttpConstants\HttpMethod;
+use Roolith\Route\HttpConstants\HttpResponseCode;
+use Roolith\Route\Interfaces\RouterInterface;
 
 class Router extends RouterBase implements RouterInterface
 {
@@ -16,8 +16,8 @@ class Router extends RouterBase implements RouterInterface
      */
     public function __construct($settings = [], Response $response = null, Request $request = null)
     {
-        $response = $response ?? new Response();
-        $request = $request ?? new Request();
+        $response = $response ? $response : new Response();
+        $request = $request ? $request : new Request();
 
         parent::__construct($response, $request);
 

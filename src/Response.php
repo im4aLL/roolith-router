@@ -1,9 +1,9 @@
 <?php
-namespace Roolith;
+namespace Roolith\Route;
 
-use Roolith\HttpConstants\HttpResponseCode;
-use Roolith\Traits\EncoderTrait;
-use Roolith\Traits\HeaderTrait;
+use Roolith\Route\HttpConstants\HttpResponseCode;
+use Roolith\Route\Traits\EncoderTrait;
+use Roolith\Route\Traits\HeaderTrait;
 
 class Response
 {

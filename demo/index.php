@@ -1,5 +1,5 @@
 <?php
-use Roolith\Router;
+use Roolith\Route\Router;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/Controller.php';

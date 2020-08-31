@@ -1,7 +1,7 @@
 <?php
-namespace Roolith;
+namespace Roolith\Route;
 
-use Roolith\HttpConstants\HttpMethod;
+use Roolith\Route\HttpConstants\HttpMethod;
 
 class Request
 {

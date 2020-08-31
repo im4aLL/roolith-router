@@ -1,5 +1,5 @@
 <?php
-namespace Roolith\HttpConstants;
+namespace Roolith\Route\HttpConstants;
 
 class HttpResponseCode {
     const __default = self::OK;

@@ -8,7 +8,7 @@ composer require roolith/router
 
 ### Basic Usage
 ```php
-use Roolith\Router;
+use Roolith\Route\Router;
 
 require_once __DIR__ . '/PATH_TO_AUTOLOAD/autoload.php';
 

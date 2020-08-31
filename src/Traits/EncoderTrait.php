@@ -1,5 +1,5 @@
 <?php
-namespace Roolith\Traits;
+namespace Roolith\Route\Traits;
 
 trait EncoderTrait
 {

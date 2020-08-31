@@ -1,8 +1,8 @@
 <?php
 
-namespace Roolith\Interfaces;
+namespace Roolith\Route\Interfaces;
 
-use Roolith\HttpConstants\HttpResponseCode;
+use Roolith\Route\HttpConstants\HttpResponseCode;
 
 interface RouterInterface
 {

@@ -1,8 +1,8 @@
 <?php
 
 use PHPUnit\Framework\TestCase;
-use Roolith\HttpConstants\HttpResponseCode;
-use Roolith\Response;
+use Roolith\Route\HttpConstants\HttpResponseCode;
+use Roolith\Route\Response;
 
 class ResponseForTest extends Response
 {

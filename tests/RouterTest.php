@@ -1,8 +1,8 @@
 <?php
 use PHPUnit\Framework\TestCase;
-use Roolith\HttpConstants\HttpMethod;
-use Roolith\Request;
-use Roolith\Router;
+use Roolith\Route\HttpConstants\HttpMethod;
+use Roolith\Route\Request;
+use Roolith\Route\Router;
 
 class RouterForTest extends Router
 {
