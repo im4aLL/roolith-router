@@ -13,6 +13,7 @@ function dd($var) {
 
 $router = new Router([
     'base_url' => 'http://localhost/roolith-router/demo/',
+    'view_dir' => __DIR__ . '/views',
 ]);
 //$router->setBaseUrl('http://localhost/router/demo/');
 

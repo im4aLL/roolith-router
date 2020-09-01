@@ -237,7 +237,7 @@ class Router extends RouterBase implements RouterInterface
         if (isset($router['middleware'])) {
             $isProcessNext = call_user_func([$router['middleware'], 'process'], $this->request, $this->response);
             if (!$isProcessNext) {
-                $this->response->errorResponse("Invalid request");
+                $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::BAD_REQUEST, "Invalid request"));
                 return $this;
             }
         }
@@ -429,6 +429,10 @@ class Router extends RouterBase implements RouterInterface
     {
         if (isset($settings['base_url'])) {
             $this->setBaseUrl($settings['base_url']);
+        }
+
+        if (isset($settings['view_dir'])) {
+            $this->setViewDir($settings['view_dir']);
         }
 
         return $this;

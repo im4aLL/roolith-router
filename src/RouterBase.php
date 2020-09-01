@@ -1,6 +1,8 @@
 <?php
 namespace Roolith\Route;
 
+use Roolith\Route\HttpConstants\HttpResponseCode;
+
 abstract class RouterBase
 {
     /**
@@ -31,6 +33,11 @@ abstract class RouterBase
      */
     protected $groupSettings;
 
+    /**
+     * @var string
+     */
+    protected $viewDir;
+
 
     public function __construct(Response $response, Request $request)
     {
@@ -38,6 +45,7 @@ abstract class RouterBase
         $this->response = $response;
         $this->request = $request;
         $this->groupSettings = [];
+        $this->viewDir = null;
     }
 
     /**
@@ -49,6 +57,19 @@ abstract class RouterBase
     public function setBaseUrl($url)
     {
         $this->request->setBaseUrl($url);
+
+        return $this;
+    }
+
+    /**
+     * Set view dir
+     *
+     * @param $dir
+     * @return $this
+     */
+    public function setViewDir($dir)
+    {
+        $this->viewDir = $dir;
 
         return $this;
     }
@@ -107,7 +128,7 @@ abstract class RouterBase
     protected function executeRouteMethod($router)
     {
         if (!$router) {
-            $this->response->errorResponse("Route doesn't exists");
+            $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::NOT_FOUND, "Route doesn't exists"));
             return $this;
         }
 
@@ -129,7 +150,7 @@ abstract class RouterBase
                 $content = isset($router['payload']) ? call_user_func_array([new $className, $classMethodName], $router['payload']) : call_user_func([new $className, $classMethodName]);
                 $this->response->body($content);
             } else {
-                $this->response->errorResponse("$classMethodName method doesn't exist in $className");
+                $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::NOT_FOUND, "$classMethodName method doesn't exist in $className"));
             }
         }
 
@@ -298,5 +319,30 @@ abstract class RouterBase
         }
 
         return $this->getBaseUrl().ltrim($url, '/');
+    }
+
+    /**
+     * Get view html by status code
+     *
+     * @param $statusCode
+     * @param string $message
+     * @return string
+     */
+    public function getViewHtmlByStatusCode($statusCode, $message = '')
+    {
+        if (!$this->viewDir) {
+            return $message;
+        }
+
+        $filePath = $this->viewDir . '/' . $statusCode . '.php';
+        if (file_exists($filePath)) {
+            ob_start();
+            include $filePath;
+            $output = ob_get_contents();
+            ob_end_clean();
+            return $output;
+        }
+
+        return $message;
     }
 }

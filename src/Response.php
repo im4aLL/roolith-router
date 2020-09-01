@@ -162,7 +162,7 @@ class Response
     public function errorResponse($message = 'Something went wrong')
     {
         $this->setStatusCode(HttpResponseCode::NOT_FOUND)
-            ->setHeaderPlain()
+            ->setHeaderHtml()
             ->body($message);
 
         return $this;
