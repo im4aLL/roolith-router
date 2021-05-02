@@ -402,6 +402,17 @@ class RouterTest extends TestCase
         $this->assertIsString($url);
     }
 
+    public function testShouldGetUrlByNameAndParam()
+    {
+        $this->router->delete('delete/{id}', function() {
+            return 'done';
+        })->name('delete');
+
+        $url = $this->router->getUrlByName('delete', ['id' => 1]);
+
+        $this->assertSame('delete/1', $url);
+    }
+
     public function testShouldAddMiddlewareToRoute()
     {
         $this->router->delete('/', function() {

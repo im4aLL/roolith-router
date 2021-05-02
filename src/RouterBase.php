@@ -305,9 +305,10 @@ abstract class RouterBase
      * Get full URL by router name
      *
      * @param $string
+     * @param $settings array
      * @return string
      */
-    public function getUrlByName($string)
+    public function getUrlByName($string, $settings = [])
     {
         $url = '';
 
@@ -316,6 +317,18 @@ abstract class RouterBase
                 $url = $route['path'];
                 break;
             }
+        }
+
+        if ($settings && count($settings) > 0) {
+            $patternFindArray = [];
+            $patternReplaceArray = [];
+
+            foreach ($settings as $key => $value) {
+                $patternFindArray[] = '/{'.$key.'}/';
+                $patternReplaceArray[] = $value;
+            }
+
+            $url = preg_replace($patternFindArray, $patternReplaceArray, $url);
         }
 
         return $this->getBaseUrl().ltrim($url, '/');
