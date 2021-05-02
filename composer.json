@@ -15,7 +15,7 @@
         "psr-4": {"Roolith\\Route\\": "src/"}
     },
     "license": "MIT",
-	"version": "1.0.3",
+	"version": "1.0.5",
 	"minimum-stability": "stable",
     "require": {
         "ext-json": "*"
