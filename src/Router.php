@@ -258,6 +258,18 @@ class Router extends RouterBase implements RouterInterface
     }
 
     /**
+     * Get active route
+     *
+     * @return array
+     */
+    public function activeRoute()
+    {
+        $methodName = $this->request->getRequestMethod();
+
+        return $this->getRequestedRouter($this->request->getRequestedUrl(), $methodName);
+    }
+
+    /**
      * Register a route
      * If param is array then register multiple route
      *
