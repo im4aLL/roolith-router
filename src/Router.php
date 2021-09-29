@@ -220,6 +220,7 @@ class Router extends RouterBase implements RouterInterface
     {
         $this->setGroupSettings($settings);
         call_user_func($callback);
+        $this->resetGroupSettings();
 
         return $this;
     }
@@ -235,7 +236,7 @@ class Router extends RouterBase implements RouterInterface
         $router = $this->getRequestedRouter($this->request->getRequestedUrl(), $methodName);
 
         if (isset($router['middleware'])) {
-            $isProcessNext = call_user_func([$router['middleware'], 'process'], $this->request, $this->response);
+            $isProcessNext = call_user_func([new $router['middleware'](), 'process'], $this->request, $this->response);
             if (!$isProcessNext) {
                 $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::BAD_REQUEST, "Invalid request"));
                 return $this;

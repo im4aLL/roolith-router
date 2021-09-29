@@ -174,7 +174,7 @@ abstract class RouterBase
                     $selectedRoute = $route;
                     break;
                 } elseif (strstr($route['path'], '{')) {
-                    $patternValue = $this->matchPlain($route['path'], $path);
+                    $patternValue = $this->matchPattern($route['path'], $path);
 
                     if ($patternValue) {
                         $selectedRoute = $route;
