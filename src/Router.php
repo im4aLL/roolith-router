@@ -350,7 +350,8 @@ class Router extends RouterBase implements RouterInterface
         }
 
         if (isset($groupSettings['urlPrefix'])) {
-            $route['path'] = '/'.ltrim($groupSettings['urlPrefix'], '/').$route['path'];
+            $path = '/'.ltrim($groupSettings['urlPrefix'], '/').$route['path'];
+            $route['path'] = rtrim($path, '/');
         }
 
         if (isset($groupSettings['namePrefix'])) {

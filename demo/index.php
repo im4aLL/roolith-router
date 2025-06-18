@@ -17,7 +17,7 @@ $router = new Router([
 ]);
 //$router->setBaseUrl('http://localhost/router/demo/');
 
-$router->get('/', 'Demo\Controller@index');
+// $router->get('/', 'Demo\Controller@index');
 
 //$router->get('/', function() {
 //    return 'default. Server request method:'. $_SERVER['REQUEST_METHOD'];
@@ -90,10 +90,20 @@ $router->get('/', 'Demo\Controller@index');
 //    })->name('action');
 // });
 
-$router->get('user/{id}', 'Demo\Controller@user')->name('controller.user');
+$router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => '/user', 'namePrefix' => 'user.'], function () use ($router) {
+   $router->get('/', function (){
+       return "default user page";
+   })->name('profile');
+
+   $router->get('action/{actionId}', function ($userId, $actionId){
+       return "action route: User id: $userId and action id $actionId";
+   })->name('action');
+});
+
+// $router->get('user/{id}', 'Demo\Controller@user')->name('controller.user');
 
 $router->run();
 
 // print_r($router->getUrlByName('controller.user', ['id' => 1]));
 
-//dd($router->getRouteList());
+dd($router->getRouteList());
