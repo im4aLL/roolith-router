@@ -353,9 +353,8 @@ class Router extends RouterBase implements RouterInterface
         }
 
         if (isset($groupSettings['namePrefix'])) {
-            $route['name'] = $groupSettings['namePrefix'];
+            $route['name'] = $groupSettings['namePrefix'].$route['name'];
         }
-
     }
 
     /**
@@ -407,7 +406,7 @@ class Router extends RouterBase implements RouterInterface
             return false;
         }
 
-        $namePrefix = $this->routerArray[count($this->routerArray) - 1]['name'] ? $this->routerArray[count($this->routerArray) - 1]['name'] : '';
+        $namePrefix = end($this->routerArray)['name'] ?? '';
         $this->routerArray[count($this->routerArray) - 1]['name'] = $namePrefix.$string;
 
         return $this;

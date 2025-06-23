@@ -9,7 +9,7 @@ abstract class Middleware
      *
      * @param Request $request
      * @param Response $response
-     * @return mixed
+     * @return bool
      */
-    abstract protected function process(Request $request, Response $response): mixed;
+    abstract protected function process(Request $request, Response $response): bool;
 }

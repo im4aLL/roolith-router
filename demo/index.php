@@ -83,15 +83,17 @@ $router->get('/', \Demo\Controller::class . '@index');
 //    return "Your name is - $name";
 //});
 
-// $router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => 'user/{userId}', 'namePrefix' => 'user.'], function () use ($router) {
+ $router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => 'user/{userId}', 'namePrefix' => 'user.'], function () use ($router) {
 //    $router->get('profile', function ($userId){
 //        return "profile route: User id: $userId";
 //    })->name('profile');
-
+//
 //    $router->get('action/{actionId}', function ($userId, $actionId){
 //        return "action route: User id: $userId and action id $actionId";
 //    })->name('action');
-// });
+
+//    $router->crud('/test', \Demo\Controller::class);
+ });
 
 //$router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => '/user', 'namePrefix' => 'user.'], function () use ($router) {
 //   $router->get('/', function (){
@@ -106,5 +108,6 @@ $router->get('/', \Demo\Controller::class . '@index');
 // $router->get('user/{id}', 'Demo\Controller@user')->name('controller.user');
 
 $router->run();
+//dd($router->getRouteList());
 
 // print_r($router->getUrlByName('controller.user', ['id' => 1]));
