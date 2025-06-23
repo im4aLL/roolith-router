@@ -6,7 +6,7 @@ trait HeaderTrait
     /**
      * Set header JSON
      */
-    public function makeJsonHeader()
+    public function makeJsonHeader(): void
     {
         header('Content-Type: application/json; charset=UTF-8');
     }
@@ -14,7 +14,7 @@ trait HeaderTrait
     /**
      * Set header HTML
      */
-    public function makeHtmlHeader()
+    public function makeHtmlHeader(): void
     {
         header('Content-Type: text/html; charset=UTF-8');
     }
@@ -22,7 +22,7 @@ trait HeaderTrait
     /**
      * Set header PLAIN TEXT
      */
-    public function makePlainTextHeader()
+    public function makePlainTextHeader(): void
     {
         header('Content-Type: text/plain; charset=UTF-8');
     }
@@ -32,7 +32,7 @@ trait HeaderTrait
      *
      * @param $url
      */
-    public function redirect($url)
+    public function redirect($url): void
     {
         header("Location: $url");
     }

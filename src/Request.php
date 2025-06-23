@@ -10,28 +10,28 @@ class Request
      *
      * @var string
      */
-    private $baseUrl;
+    private string $baseUrl = '';
 
     /**
      * Current request method name
      *
      * @var mixed
      */
-    private $requestMethod;
+    private mixed $requestMethod;
 
     /**
      * Current router pattern matched key value pair
      *
      * @var array
      */
-    private $requestedParam;
+    private array $requestedParam;
 
     /**
      * Request constructor.
      */
     public function __construct()
     {
-        $this->requestMethod = isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : HttpMethod::GET;
+        $this->requestMethod = $_SERVER['REQUEST_METHOD'] ?? HttpMethod::GET;
         $this->requestedParam = [];
     }
 
@@ -41,7 +41,7 @@ class Request
      * @param $url
      * @return $this
      */
-    public function setBaseUrl($url)
+    public function setBaseUrl($url): static
     {
         $this->baseUrl = $url;
 
@@ -53,7 +53,7 @@ class Request
      *
      * @return string
      */
-    public function getBaseUrl()
+    public function getBaseUrl(): string
     {
         return $this->baseUrl;
     }
@@ -63,7 +63,7 @@ class Request
      *
      * @return mixed
      */
-    public function getRequestMethod()
+    public function getRequestMethod(): mixed
     {
         return $this->requestMethod;
     }
@@ -73,7 +73,7 @@ class Request
      *
      * @return string
      */
-    public function getRequestedUrl()
+    public function getRequestedUrl(): string
     {
         $currentUrl = $this->getCurrentUrl();
         $actualUrl = rtrim(str_replace($this->baseUrl, '', $currentUrl), '/');
@@ -91,7 +91,7 @@ class Request
      *
      * @return bool
      */
-    protected function isSecure()
+    protected function isSecure(): bool
     {
         if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on') {
             return true;
@@ -107,7 +107,7 @@ class Request
      *
      * @return string
      */
-    protected function getCurrentUrl()
+    protected function getCurrentUrl(): string
     {
         return ($this->isSecure() ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
     }
@@ -118,7 +118,7 @@ class Request
      * @param $string
      * @return string|string[]|null
      */
-    protected function cleanUrlString($string)
+    protected function cleanUrlString($string): array|string|null
     {
         return preg_replace("/[^a-zA-Z0-9-._]+/", "", $string);
     }
@@ -129,9 +129,9 @@ class Request
      * @param $string
      * @return string|string[]|null
      */
-    protected function cleanUrlStringArray($string)
+    protected function cleanUrlStringArray($string): array|string|null
     {
-        if(strstr($string, '?')) {
+        if(str_contains($string, '?')) {
             $string = substr($string, 0, strpos($string, '?'));
         }
 
@@ -145,7 +145,7 @@ class Request
      * @param $paramValueArray
      * @return Request
      */
-    public function setRequestedParam($paramArray, $paramValueArray)
+    public function setRequestedParam($paramArray, $paramValueArray): static
     {
         $size = count($paramArray);
 
@@ -163,7 +163,7 @@ class Request
      * @param $paramKey
      * @return bool|mixed
      */
-    public function getParam($paramKey)
+    public function getParam($paramKey): mixed
     {
         if (isset($this->requestedParam[$paramKey])) {
             return $this->requestedParam[$paramKey];
@@ -178,7 +178,7 @@ class Request
      * @param $paramKey
      * @return string|string[]|null
      */
-    public function getUrlParam($paramKey)
+    public function getUrlParam($paramKey): array|string|null
     {
         return isset($_GET[$paramKey]) ? $this->cleanUrlString($_GET[$paramKey]) : null;
     }

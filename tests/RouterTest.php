@@ -6,22 +6,22 @@ use Roolith\Route\Router;
 
 class RouterForTest extends Router
 {
-    public function getRequestedRouter($path, $method)
+    public function getRequestedRouter($path, $method): mixed
     {
         return parent::getRequestedRouter($path, $method);
     }
 
-    public function matchPlain($routerPath, $url)
+    public function matchPlain($routerPath, $url): bool|array
     {
         return parent::matchPlain($routerPath, $url);
     }
 
-    public function matchPattern($routerPath, $url)
+    public function matchPattern($routerPath, $url): bool|array
     {
         return parent::matchPattern($routerPath, $url);
     }
     
-    public function executeRouteMethod($router)
+    public function executeRouteMethod($router): static
     {
         return parent::executeRouteMethod($router);
     }
@@ -29,9 +29,9 @@ class RouterForTest extends Router
 
 class RouterTest extends TestCase
 {
-    private $router;
-    private $url;
-    private $controllerName;
+    private Router $router;
+    private string $url;
+    private string $controllerName;
 
     public function setUp(): void
     {
@@ -42,7 +42,7 @@ class RouterTest extends TestCase
 
     public function tearDown(): void
     {
-        $this->router = null;
+        $this->router = new Router();
     }
 
     protected function getLastRoute()

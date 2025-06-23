@@ -1,6 +1,9 @@
 <?php
 namespace Roolith\Route;
 
+use DI\Container;
+use DI\DependencyException;
+use DI\NotFoundException;
 use Roolith\Route\HttpConstants\HttpResponseCode;
 
 abstract class RouterBase
@@ -10,33 +13,43 @@ abstract class RouterBase
      *
      * @var array
      */
-    protected $routerArray;
+    protected array $routerArray;
 
     /**
      * Response class instance
      *
      * @var Response
      */
-    protected $response;
+    protected Response $response;
 
     /**
      * Request class instance
      *
      * @var Request
      */
-    protected $request;
+    protected Request $request;
 
     /**
      * Group route settings value
      *
      * @var array
      */
-    protected $groupSettings;
+    protected array $groupSettings;
 
     /**
-     * @var string
+     * @var ?string
      */
-    protected $viewDir;
+    protected ?string $viewDir;
+
+    /**
+     * @var Container Dependency injection container
+     */
+    protected Container $container;
+
+    /**
+     * @var bool whether you use dependency injection or not
+     */
+    protected bool $use_di = true;
 
 
     public function __construct(Response $response, Request $request)
@@ -46,6 +59,8 @@ abstract class RouterBase
         $this->request = $request;
         $this->groupSettings = [];
         $this->viewDir = null;
+
+        $this->container = new Container();
     }
 
     /**
@@ -54,7 +69,7 @@ abstract class RouterBase
      * @param $url
      * @return $this
      */
-    public function setBaseUrl($url)
+    public function setBaseUrl($url): static
     {
         $this->request->setBaseUrl($url);
 
@@ -67,9 +82,16 @@ abstract class RouterBase
      * @param $dir
      * @return $this
      */
-    public function setViewDir($dir)
+    public function setViewDir($dir): static
     {
         $this->viewDir = $dir;
+
+        return $this;
+    }
+
+    public function setUseDI(bool $useDI): static
+    {
+        $this->use_di = $useDI;
 
         return $this;
     }
@@ -77,9 +99,9 @@ abstract class RouterBase
     /**
      * Get base url from request
      *
-     * @return mixed
+     * @return string
      */
-    public function getBaseUrl()
+    public function getBaseUrl(): string
     {
         return $this->request->getBaseUrl();
     }
@@ -89,7 +111,7 @@ abstract class RouterBase
      *
      * @return array|bool
      */
-    public function getGroupSettings()
+    public function getGroupSettings(): bool|array
     {
         return $this->groupSettings && count($this->groupSettings) > 0 ? $this->groupSettings : false;
     }
@@ -100,7 +122,7 @@ abstract class RouterBase
      * @param $groupSettings
      * @return $this
      */
-    public function setGroupSettings($groupSettings)
+    public function setGroupSettings($groupSettings): static
     {
         $this->groupSettings = $groupSettings;
 
@@ -112,7 +134,7 @@ abstract class RouterBase
      *
      * @return $this
      */
-    public function resetGroupSettings()
+    public function resetGroupSettings(): static
     {
         $this->groupSettings = [];
 
@@ -125,7 +147,7 @@ abstract class RouterBase
      * @param $router
      * @return $this
      */
-    protected function executeRouteMethod($router)
+    protected function executeRouteMethod($router): static
     {
         if (!$router) {
             $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::NOT_FOUND, "Route doesn't exists"));
@@ -146,11 +168,16 @@ abstract class RouterBase
             $className = $classMethodArray[0];
             $classMethodName = $classMethodArray[1];
 
-            if (method_exists($className, $classMethodName)) {
-                $content = isset($router['payload']) ? call_user_func_array([new $className, $classMethodName], $router['payload']) : call_user_func([new $className, $classMethodName]);
-                $this->response->body($content);
-            } else {
+            if (!method_exists($className, $classMethodName)) {
                 $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::NOT_FOUND, "$classMethodName method doesn't exist in $className"));
+
+                return $this;
+            }
+
+            if ($this->use_di) {
+                $this->executeRouteMethodClassDI($className, $classMethodName);
+            } else {
+                $this->executeRouteMethodClassLegacy($className, $classMethodName);
             }
         }
 
@@ -158,13 +185,51 @@ abstract class RouterBase
     }
 
     /**
-     * Match requested url with router pattern
+     * Invoke class method with dependency injection
+     *
+     * @param $className string
+     * @param $classMethodName string
+     * @return void
+     */
+    private function executeRouteMethodClassDI(string $className, string $classMethodName): void
+    {
+        try {
+            $classDI = $this->container->get($className);
+        } catch (DependencyException|NotFoundException $e) {
+            $this->response->errorResponse($e->getMessage());
+        }
+
+        if (!isset($classDI)) {
+            $this->response->errorResponse('Dependency Injection Error On '.$className. ' ' . $classMethodName);
+
+            return;
+        }
+
+        $content = isset($router['payload']) ? call_user_func_array([$classDI, $classMethodName], $router['payload']) : call_user_func([$classDI, $classMethodName]);
+        $this->response->body($content);
+    }
+
+    /**
+     * Invoke class method in tradition way
+     *
+     * @param $className string
+     * @param $classMethodName string
+     * @return void
+     */
+    private function executeRouteMethodClassLegacy(string $className, string $classMethodName): void
+    {
+        $content = isset($router['payload']) ? call_user_func_array([new $className, $classMethodName], $router['payload']) : call_user_func([new $className, $classMethodName]);
+        $this->response->body($content);
+    }
+
+    /**
+     * Match requested url with a router pattern
      *
      * @param $path
      * @param $method
      * @return mixed|null
      */
-    protected function getRequestedRouter($path, $method)
+    protected function getRequestedRouter($path, $method): mixed
     {
         $selectedRoute = null;
 
@@ -173,7 +238,7 @@ abstract class RouterBase
                 if ($route['path'] == $path) {
                     $selectedRoute = $route;
                     break;
-                } elseif (strstr($route['path'], '{')) {
+                } elseif (str_contains($route['path'], '{')) {
                     $patternValue = $this->matchPattern($route['path'], $path);
 
                     if ($patternValue) {
@@ -195,7 +260,7 @@ abstract class RouterBase
      * @param $url
      * @return array|bool
      */
-    protected function matchPlain($routerPath, $url)
+    protected function matchPlain($routerPath, $url): bool|array
     {
         $result = false;
 
@@ -240,7 +305,7 @@ abstract class RouterBase
      * @param $url
      * @return array|bool
      */
-    protected function matchPattern($routerPath, $url)
+    protected function matchPattern($routerPath, $url): bool|array
     {
         $result = false;
 
@@ -249,7 +314,7 @@ abstract class RouterBase
         $matchArray = $matches[0];
 
         if (count($matchArray) == 0) {
-            return $result;
+            return false;
         }
 
         $routerPattern = preg_replace([$pattern, '/\//'], ['[a-zA-Z0-9\_\-]+', '\/'], $routerPath);
@@ -257,7 +322,7 @@ abstract class RouterBase
         preg_match($actualRouterPattern, $url, $patternMatch);
 
         if (count($patternMatch) == 0) {
-            return $result;
+            return false;
         }
 
         $valueArray = [];
@@ -284,7 +349,7 @@ abstract class RouterBase
      * @param $route
      * @return $this
      */
-    protected function addToRouterArray($route)
+    protected function addToRouterArray($route): static
     {
         $this->routerArray[] = $route;
 
@@ -296,7 +361,7 @@ abstract class RouterBase
      *
      * @return array
      */
-    public function getRouteList()
+    public function getRouteList(): array
     {
         return $this->routerArray;
     }
@@ -308,7 +373,7 @@ abstract class RouterBase
      * @param $settings array
      * @return string
      */
-    public function getUrlByName($string, $settings = [])
+    public function getUrlByName($string, array $settings = []): string
     {
         $url = '';
 
@@ -341,7 +406,7 @@ abstract class RouterBase
      * @param string $message
      * @return string
      */
-    public function getViewHtmlByStatusCode($statusCode, $message = '')
+    public function getViewHtmlByStatusCode($statusCode, string $message = ''): string
     {
         if (!$this->viewDir) {
             return $message;

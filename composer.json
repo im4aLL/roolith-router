@@ -12,12 +12,14 @@
         "phpunit/phpunit": "^9.2"
     },
     "autoload": {
-        "psr-4": {"Roolith\\Route\\": "src/"}
+        "psr-4": {"Roolith\\Route\\": "src/", "Demo\\": "demo/"}
     },
     "license": "MIT",
-	"version": "1.0.9",
+	"version": "1.0.10",
 	"minimum-stability": "stable",
     "require": {
-        "ext-json": "*"
+        "ext-json": "*",
+        "php-di/php-di": "^7.0",
+        "ext-mbstring": "*"
     }
 }

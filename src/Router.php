@@ -31,7 +31,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return $this
      */
-    public function get($param, $callback)
+    public function get($param, $callback): static
     {
         $this->registerRoute($param, $callback, HttpMethod::GET);
 
@@ -45,7 +45,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return $this
      */
-    public function post($param, $callback)
+    public function post($param, $callback): static
     {
         $this->registerRoute($param, $callback, HttpMethod::POST);
 
@@ -59,7 +59,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return $this
      */
-    public function put($param, $callback)
+    public function put($param, $callback): static
     {
         $this->registerRoute($param, $callback, HttpMethod::PUT);
 
@@ -73,7 +73,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return $this
      */
-    public function patch($param, $callback)
+    public function patch($param, $callback): static
     {
         $this->registerRoute($param, $callback, HttpMethod::PATCH);
 
@@ -87,7 +87,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return $this
      */
-    public function delete($param, $callback)
+    public function delete($param, $callback): static
     {
         $this->registerRoute($param, $callback, HttpMethod::DELETE);
 
@@ -101,7 +101,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return $this
      */
-    public function options($param, $callback)
+    public function options($param, $callback): static
     {
         $this->registerRoute($param, $callback, HttpMethod::OPTIONS);
 
@@ -116,7 +116,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return $this
      */
-    public function match($array, $param, $callback)
+    public function match($array, $param, $callback): static
     {
         foreach ($array as $methodName) {
             if (in_array($methodName, HttpMethod::all())) {
@@ -134,7 +134,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return $this
      */
-    public function any($param, $callback)
+    public function any($param, $callback): static
     {
         foreach (HttpMethod::all() as $methodName) {
             $this->registerRoute($param, $callback, $methodName);
@@ -150,7 +150,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return $this
      */
-    public function crud($param, $callback)
+    public function crud($param, $callback): static
     {
         $namePrefix = ltrim($param, '/');
 
@@ -185,7 +185,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $methodName
      * @return string
      */
-    private function crudCallback($callback, $methodName)
+    private function crudCallback($callback, $methodName): string
     {
         if (is_string($callback)) {
             return $callback.'@'.$methodName;
@@ -202,7 +202,7 @@ class Router extends RouterBase implements RouterInterface
      * @param int $statusCode
      * @return $this
      */
-    public function redirect($fromUrl, $toUrl, $statusCode = HttpResponseCode::MOVED_PERMANENTLY)
+    public function redirect($fromUrl, $toUrl, int $statusCode = HttpResponseCode::MOVED_PERMANENTLY): static
     {
         $this->registerRedirectRoute($fromUrl, $toUrl, $statusCode);
 
@@ -216,7 +216,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return Router
      */
-    public function group($settings, $callback)
+    public function group($settings, $callback): static
     {
         $this->setGroupSettings($settings);
         call_user_func($callback);
@@ -226,11 +226,11 @@ class Router extends RouterBase implements RouterInterface
     }
 
     /**
-     * Match requested URL with route list and execute it's callable method
+     * Match the requested URL with a route list and execute it's callable method
      *
      * @return $this
      */
-    public function run()
+    public function run(): static
     {
         $methodName = $this->request->getRequestMethod();
         $router = $this->getRequestedRouter($this->request->getRequestedUrl(), $methodName);
@@ -262,7 +262,7 @@ class Router extends RouterBase implements RouterInterface
      *
      * @return array
      */
-    public function activeRoute()
+    public function activeRoute(): array
     {
         $methodName = $this->request->getRequestMethod();
 
@@ -277,12 +277,12 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @param $method
      * @param string $name
-     * @return $this
+     * @return void
      */
-    private function registerRoute($param, $callback, $method, $name = '')
+    private function registerRoute($param, $callback, $method, string $name = ''): void
     {
         if (!$param || !$callback) {
-            return $this;
+            return;
         }
 
         $routeArray = [];
@@ -305,7 +305,6 @@ class Router extends RouterBase implements RouterInterface
             $this->addToRouterArray($route);
         }
 
-        return $this;
     }
 
     /**
@@ -314,11 +313,11 @@ class Router extends RouterBase implements RouterInterface
      * @param $fromUrl
      * @param $toUrl
      * @param $statusCode
-     * @return $this
+     * @return void
      */
-    private function registerRedirectRoute($fromUrl, $toUrl, $statusCode)
+    private function registerRedirectRoute($fromUrl, $toUrl, $statusCode): void
     {
-        if (strpos($toUrl, 'http') === 0) {
+        if (str_starts_with($toUrl, 'http')) {
             $redirectUrl = $toUrl;
         } else {
             $redirectUrl = $this->getBaseUrl().ltrim($toUrl, '/');
@@ -333,7 +332,6 @@ class Router extends RouterBase implements RouterInterface
 
         $this->addToRouterArray($route);
 
-        return $this;
     }
 
     /**
@@ -341,9 +339,9 @@ class Router extends RouterBase implements RouterInterface
      *
      * @param $route
      * @param $groupSettings
-     * @return Router
+     * @return void
      */
-    private function addGroupSettingsToRoute(&$route, $groupSettings)
+    private function addGroupSettingsToRoute(&$route, $groupSettings): void
     {
         if (isset($groupSettings['middleware'])) {
             $route['middleware'] = $groupSettings['middleware'];
@@ -358,7 +356,6 @@ class Router extends RouterBase implements RouterInterface
             $route['name'] = $groupSettings['namePrefix'];
         }
 
-        return $this;
     }
 
     /**
@@ -370,16 +367,17 @@ class Router extends RouterBase implements RouterInterface
      * @param $method
      * @param $callback
      * @param string $name
-     * @return $this
+     * @return void
      */
-    private function addRouteToRouteArray(&$routeArray, $param, $method, $callback, $name = '') {
-        if (strstr($param, '?')) {
+    private function addRouteToRouteArray(&$routeArray, $param, $method, $callback, $name = ''): void
+    {
+        if (str_contains($param, '?')) {
             $paramArray = explode('/', $param);
             $size = count($paramArray);
 
             $modifiedParamArray = [];
             for ($i = 0; $i < $size; $i++) {
-                if (strstr($paramArray[$i], '?')) {
+                if (str_contains($paramArray[$i], '?')) {
                     $this->addRouteToRouteArray($routeArray, implode('/', $modifiedParamArray), $method, $callback, $name);
                     $this->addRouteToRouteArray($routeArray, str_replace('?', '', $param), $method, $callback, $name);
                 } else {
@@ -395,7 +393,6 @@ class Router extends RouterBase implements RouterInterface
             ];
         }
 
-        return $this;
     }
 
     /**
@@ -404,7 +401,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $string
      * @return $this|bool
      */
-    public function name($string)
+    public function name($string): bool|static
     {
         if (count($this->routerArray) == 0) {
             return false;
@@ -422,7 +419,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $middlewareClass
      * @return $this|bool
      */
-    public function middleware($middlewareClass)
+    public function middleware($middlewareClass): bool|static
     {
         if (count($this->routerArray) == 0) {
             return false;
@@ -437,9 +434,9 @@ class Router extends RouterBase implements RouterInterface
      * Apply settings
      *
      * @param $settings
-     * @return $this
+     * @return void
      */
-    private function applySettings($settings)
+    private function applySettings($settings): void
     {
         if (isset($settings['base_url'])) {
             $this->setBaseUrl($settings['base_url']);
@@ -449,6 +446,9 @@ class Router extends RouterBase implements RouterInterface
             $this->setViewDir($settings['view_dir']);
         }
 
-        return $this;
+        if (isset($settings['use_di'])) {
+            $this->setUseDi($settings['use_di']);
+        }
+
     }
 }

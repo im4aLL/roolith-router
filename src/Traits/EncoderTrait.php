@@ -4,13 +4,14 @@ namespace Roolith\Route\Traits;
 trait EncoderTrait
 {
     /**
-     * Convert array or object or string to UTF8
+     * Convert an array or object or string to UTF8
      *
      * @param $var
      * @param bool $deep
-     * @return array|string
+     * @return array|string|object
      */
-    public function anythingToUtf8($var, $deep = TRUE) {
+    public function anythingToUtf8($var, bool $deep = TRUE): array|string|object
+    {
         if (is_array($var)) {
             foreach($var as $key => $value){
                 if($deep) {

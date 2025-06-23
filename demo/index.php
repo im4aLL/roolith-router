@@ -14,10 +14,13 @@ function dd($var) {
 $router = new Router([
     'base_url' => 'http://localhost/roolith-router/demo/',
     'view_dir' => __DIR__ . '/views',
+    'use_di' => true,
 ]);
 //$router->setBaseUrl('http://localhost/router/demo/');
 
-// $router->get('/', 'Demo\Controller@index');
+$router->get('/', \Demo\Controller::class . '@index');
+// $router->get('/{id}', \Demo\Controller::class . '@simpleIndex');
+//$router->get('/', \Demo\Controller::class . '@simpleIndex2');
 
 //$router->get('/', function() {
 //    return 'default. Server request method:'. $_SERVER['REQUEST_METHOD'];
@@ -90,20 +93,18 @@ $router = new Router([
 //    })->name('action');
 // });
 
-$router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => '/user', 'namePrefix' => 'user.'], function () use ($router) {
-   $router->get('/', function (){
-       return "default user page";
-   })->name('profile');
-
-   $router->get('action/{actionId}', function ($userId, $actionId){
-       return "action route: User id: $userId and action id $actionId";
-   })->name('action');
-});
+//$router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => '/user', 'namePrefix' => 'user.'], function () use ($router) {
+//   $router->get('/', function (){
+//       return "default user page";
+//   })->name('profile');
+//
+//   $router->get('action/{actionId}', function ($userId, $actionId){
+//       return "action route: User id: $userId and action id $actionId";
+//   })->name('action');
+//});
 
 // $router->get('user/{id}', 'Demo\Controller@user')->name('controller.user');
 
 $router->run();
 
 // print_r($router->getUrlByName('controller.user', ['id' => 1]));
-
-dd($router->getRouteList());

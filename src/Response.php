@@ -14,14 +14,14 @@ class Response
      *
      * @var int
      */
-    protected $statusCode;
+    protected int $statusCode = HttpResponseCode::OK;
 
     /**
      * If header content type already set
      *
      * @var bool
      */
-    protected $hasHeaderContentType;
+    protected bool $hasHeaderContentType;
 
     /**
      * Response constructor.
@@ -36,7 +36,7 @@ class Response
      *
      * @return bool
      */
-    public function hasHeaderContentType()
+    public function hasHeaderContentType(): bool
     {
         return $this->hasHeaderContentType;
     }
@@ -47,7 +47,7 @@ class Response
      * @param int $code
      * @return $this
      */
-    public function setStatusCode($code = HttpResponseCode::OK)
+    public function setStatusCode(int $code = HttpResponseCode::OK): static
     {
         $this->statusCode = $code;
         http_response_code($code);
@@ -60,7 +60,7 @@ class Response
      *
      * @return int
      */
-    public function getStatusCode()
+    public function getStatusCode(): int
     {
         return $this->statusCode;
     }
@@ -68,13 +68,13 @@ class Response
     /**
      * Show response body
      *
-     * @param string $content
+     * @param mixed $content
      * @return $this
      */
-    public function body($content = '')
+    public function body(mixed $content = ''): static
     {
         if (!$this->getStatusCode()) {
-            $this->setStatusCode(HttpResponseCode::OK);
+            $this->setStatusCode();
         }
 
         if (is_array($content) || is_object($content)) {
@@ -91,7 +91,7 @@ class Response
      *
      * @return $this
      */
-    public function setHeaderJson()
+    public function setHeaderJson(): static
     {
         if (!$this->hasHeaderContentType()) {
             $this->makeJsonHeader();
@@ -106,7 +106,7 @@ class Response
      *
      * @return $this
      */
-    public function setHeaderHtml()
+    public function setHeaderHtml(): static
     {
         if (!$this->hasHeaderContentType()) {
             $this->makeHtmlHeader();
@@ -121,7 +121,7 @@ class Response
      *
      * @return $this
      */
-    public function setHeaderPlain()
+    public function setHeaderPlain(): static
     {
         if (!$this->hasHeaderContentType()) {
             $this->makePlainTextHeader();
@@ -137,7 +137,7 @@ class Response
      * @param $content
      * @return false|string
      */
-    protected function outputJson($content)
+    protected function outputJson($content): bool|string
     {
         return json_encode($this->anythingToUtf8($content));
     }
@@ -148,7 +148,7 @@ class Response
      * @param $content
      * @return array|string
      */
-    protected function outputHtml($content)
+    protected function outputHtml($content): array|string
     {
         return $this->anythingToUtf8($content);
     }
@@ -159,7 +159,7 @@ class Response
      * @param string $message
      * @return $this
      */
-    public function errorResponse($message = 'Something went wrong')
+    public function errorResponse(string $message = 'Something went wrong'): static
     {
         $this->setStatusCode(HttpResponseCode::NOT_FOUND)
             ->setHeaderHtml()

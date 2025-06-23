@@ -6,12 +6,12 @@ use Roolith\Route\Response;
 
 class ResponseForTest extends Response
 {
-    public function outputJson($content)
+    public function outputJson($content): bool|string
     {
         return parent::outputJson($content);
     }
 
-    public function outputHtml($content)
+    public function outputHtml($content): array|string
     {
         return parent::outputHtml($content);
     }
@@ -19,7 +19,7 @@ class ResponseForTest extends Response
 
 class ResponseTest extends TestCase
 {
-    private $response;
+    private ResponseForTest $response;
 
     public function setUp(): void
     {

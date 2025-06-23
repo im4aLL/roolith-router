@@ -11,5 +11,5 @@ abstract class Middleware
      * @param Response $response
      * @return mixed
      */
-    abstract protected function process(Request $request, Response $response);
+    abstract protected function process(Request $request, Response $response): mixed;
 }

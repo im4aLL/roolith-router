@@ -6,17 +6,17 @@ use Roolith\Route\Request;
 
 class RequestForTest extends Request
 {
-    public function getCurrentUrl()
+    public function getCurrentUrl(): string
     {
         return parent::getCurrentUrl();
     }
 
-    public function cleanUrlString($string)
+    public function cleanUrlString($string): array|string|null
     {
         return parent::cleanUrlString($string);
     }
 
-    public function cleanUrlStringArray($string)
+    public function cleanUrlStringArray($string): array|string|null
     {
         return parent::cleanUrlStringArray($string);
     }
@@ -24,7 +24,7 @@ class RequestForTest extends Request
 
 class RequestTest extends TestCase
 {
-    private $request;
+    private RequestForTest $request;
 
     public function setUp(): void
     {

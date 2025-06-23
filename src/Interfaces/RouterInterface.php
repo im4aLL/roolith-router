@@ -13,7 +13,7 @@ interface RouterInterface
      * @param $callback
      * @return $this
      */
-    public function get($param, $callback);
+    public function get($param, $callback): static;
 
     /**
      * Define POST route
@@ -22,7 +22,7 @@ interface RouterInterface
      * @param $callback
      * @return $this
      */
-    public function post($param, $callback);
+    public function post($param, $callback): static;
 
     /**
      * Define PUT route
@@ -31,7 +31,7 @@ interface RouterInterface
      * @param $callback
      * @return $this
      */
-    public function put($param, $callback);
+    public function put($param, $callback): static;
 
     /**
      * Define PATCH route
@@ -40,7 +40,7 @@ interface RouterInterface
      * @param $callback
      * @return $this
      */
-    public function patch($param, $callback);
+    public function patch($param, $callback): static;
 
     /**
      * Define DELETE route
@@ -49,7 +49,7 @@ interface RouterInterface
      * @param $callback
      * @return $this
      */
-    public function delete($param, $callback);
+    public function delete($param, $callback): static;
 
     /**
      * Define OPTIONS route
@@ -58,7 +58,7 @@ interface RouterInterface
      * @param $callback
      * @return $this
      */
-    public function options($param, $callback);
+    public function options($param, $callback): static;
 
     /**
      * Define multiple route method as array
@@ -68,7 +68,7 @@ interface RouterInterface
      * @param $callback
      * @return $this
      */
-    public function match($array, $param, $callback);
+    public function match($array, $param, $callback): static;
 
     /**
      * Defined wildcard route
@@ -77,7 +77,7 @@ interface RouterInterface
      * @param $callback
      * @return $this
      */
-    public function any($param, $callback);
+    public function any($param, $callback): static;
 
     /**
      * Define crud route
@@ -86,7 +86,7 @@ interface RouterInterface
      * @param $callback
      * @return $this
      */
-    public function crud($param, $callback);
+    public function crud($param, $callback): static;
 
     /**
      * Define redirect route
@@ -96,7 +96,7 @@ interface RouterInterface
      * @param int $statusCode
      * @return $this
      */
-    public function redirect($fromUrl, $toUrl, $statusCode = HttpResponseCode::MOVED_PERMANENTLY);
+    public function redirect($fromUrl, $toUrl, int $statusCode = HttpResponseCode::MOVED_PERMANENTLY): static;
 
     /**
      * Define group for routes
@@ -111,7 +111,7 @@ interface RouterInterface
      *
      * @return $this
      */
-    public function run();
+    public function run(): static;
 
     /**
      * Adding name to last route item
@@ -119,7 +119,7 @@ interface RouterInterface
      * @param $string
      * @return $this|bool
      */
-    public function name($string);
+    public function name($string): bool|static;
 
     /**
      * Adding middleware to last route item
@@ -127,5 +127,5 @@ interface RouterInterface
      * @param $middlewareClass
      * @return $this|bool
      */
-    public function middleware($middlewareClass);
+    public function middleware($middlewareClass): bool|static;
 }

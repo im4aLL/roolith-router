@@ -3,13 +3,25 @@ namespace Demo;
 
 class Controller
 {
-    public function index()
+    protected AnotherClass $anotherClass;
+
+    public function __construct(AnotherClass $anotherClass)
     {
-        // return $this->paramText();
+        $this->anotherClass = $anotherClass;
     }
 
-    public function paramText()
+    public function index(): string
     {
-        return 'paramText: ';
+         return $this->anotherClass->test();
+    }
+
+    public function simpleIndex(string $id): string
+    {
+        return 'Simple Index ' . $id;
+    }
+
+    public function simpleIndex2(): string
+    {
+        return 'Simple Index 2';
     }
 }
