@@ -8,9 +8,9 @@ trait EncoderTrait
      *
      * @param $var
      * @param bool $deep
-     * @return array|string|object
+     * @return mixed
      */
-    public function anythingToUtf8($var, bool $deep = TRUE): array|string|object
+    public function anythingToUtf8($var, bool $deep = TRUE): mixed
     {
         if (is_array($var)) {
             foreach($var as $key => $value){

@@ -3,8 +3,11 @@ namespace Demo;
 
 class AnotherClass
 {
-    public function test(): string
+    public function test(): array
     {
-        return 'test from another class';
+        return [
+            'a' => 1,
+            'b' => 2,
+        ];
     }
 }

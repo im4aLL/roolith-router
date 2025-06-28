@@ -10,7 +10,7 @@ class Controller
         $this->anotherClass = $anotherClass;
     }
 
-    public function index(): string
+    public function index(): array
     {
          return $this->anotherClass->test();
     }
