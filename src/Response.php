@@ -146,9 +146,9 @@ class Response
      * HTML content to UTF8 content
      *
      * @param $content
-     * @return array|string
+     * @return mixed
      */
-    protected function outputHtml($content): array|string
+    protected function outputHtml($content): mixed
     {
         return $this->anythingToUtf8($content);
     }
