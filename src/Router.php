@@ -368,7 +368,7 @@ class Router extends RouterBase implements RouterInterface
      * @param string $name
      * @return void
      */
-    private function addRouteToRouteArray(&$routeArray, $param, $method, $callback, $name = ''): void
+    private function addRouteToRouteArray(&$routeArray, $param, $method, $callback, string $name = ''): void
     {
         if (str_contains($param, '?')) {
             $paramArray = explode('/', $param);

@@ -175,9 +175,9 @@ abstract class RouterBase
             }
 
             if ($this->use_di) {
-                $this->executeRouteMethodClassDI($className, $classMethodName);
+                $this->executeRouteMethodClassDI($className, $classMethodName, $router);
             } else {
-                $this->executeRouteMethodClassLegacy($className, $classMethodName);
+                $this->executeRouteMethodClassLegacy($className, $classMethodName, $router);
             }
         }
 
@@ -189,9 +189,10 @@ abstract class RouterBase
      *
      * @param $className string
      * @param $classMethodName string
+     * @param $router
      * @return void
      */
-    private function executeRouteMethodClassDI(string $className, string $classMethodName): void
+    private function executeRouteMethodClassDI(string $className, string $classMethodName, $router): void
     {
         try {
             $classDI = $this->container->get($className);
@@ -214,9 +215,10 @@ abstract class RouterBase
      *
      * @param $className string
      * @param $classMethodName string
+     * @param $router
      * @return void
      */
-    private function executeRouteMethodClassLegacy(string $className, string $classMethodName): void
+    private function executeRouteMethodClassLegacy(string $className, string $classMethodName, $router): void
     {
         $content = isset($router['payload']) ? call_user_func_array([new $className, $classMethodName], $router['payload']) : call_user_func([new $className, $classMethodName]);
         $this->response->body($content);

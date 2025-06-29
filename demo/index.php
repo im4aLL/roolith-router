@@ -18,7 +18,7 @@ $router = new Router([
 ]);
 //$router->setBaseUrl('http://localhost/router/demo/');
 
-$router->get('/', \Demo\Controller::class . '@index');
+//$router->get('/', \Demo\Controller::class . '@index');
 // $router->get('/{id}', \Demo\Controller::class . '@simpleIndex');
 //$router->get('/', \Demo\Controller::class . '@simpleIndex2');
 
@@ -95,6 +95,12 @@ $router->get('/', \Demo\Controller::class . '@index');
 //    $router->crud('/test', \Demo\Controller::class);
  });
 
+//$router->crud('/test', \Demo\Controller::class);
+$router->get('test/{param}/edit', \Demo\Controller::class.'@edit');
+$router->get('test2/{param}/edit', function ($param) {
+    return $param;
+});
+
 //$router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => '/user', 'namePrefix' => 'user.'], function () use ($router) {
 //   $router->get('/', function (){
 //       return "default user page";
@@ -107,7 +113,7 @@ $router->get('/', \Demo\Controller::class . '@index');
 
 // $router->get('user/{id}', 'Demo\Controller@user')->name('controller.user');
 
+dd($router->getRouteList());
 $router->run();
-//dd($router->getRouteList());
 
 // print_r($router->getUrlByName('controller.user', ['id' => 1]));

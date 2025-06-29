@@ -24,4 +24,9 @@ class Controller
     {
         return 'Simple Index 2';
     }
+
+    public function edit($id)
+    {
+        return $id;
+    }
 }
