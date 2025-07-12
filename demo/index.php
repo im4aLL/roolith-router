@@ -92,14 +92,14 @@ $router = new Router([
 //        return "action route: User id: $userId and action id $actionId";
 //    })->name('action');
 
-//    $router->crud('/test', \Demo\Controller::class);
+    $router->crud('/test', \Demo\Controller::class);
  });
 
 //$router->crud('/test', \Demo\Controller::class);
-$router->get('test/{param}/edit', \Demo\Controller::class.'@edit');
-$router->get('test2/{param}/edit', function ($param) {
-    return $param;
-});
+//$router->get('test/{param}/edit', \Demo\Controller::class.'@edit');
+//$router->get('test2/{param}/edit', function ($param) {
+//    return $param;
+//});
 
 //$router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => '/user', 'namePrefix' => 'user.'], function () use ($router) {
 //   $router->get('/', function (){

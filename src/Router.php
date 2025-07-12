@@ -164,6 +164,8 @@ class Router extends RouterBase implements RouterInterface
                     break;
                 case HttpMethod::POST:
                     $this->registerRoute($param, $this->crudCallback($callback, 'store'), $methodName, $namePrefix.'.store');
+                    $this->registerRoute($param.'/{param}', $this->crudCallback($callback, 'update'), $methodName, $namePrefix.'._update');
+                    $this->registerRoute($param.'/{param}/delete', $this->crudCallback($callback, 'destroy'), $methodName, $namePrefix.'._destroy');
                     break;
                 case HttpMethod::PUT:
                 case HttpMethod::PATCH:
