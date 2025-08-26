@@ -114,13 +114,14 @@ class Router extends RouterBase implements RouterInterface
      * @param $array
      * @param $param
      * @param $callback
+     * @param string $name
      * @return $this
      */
-    public function match($array, $param, $callback): static
+    public function match($array, $param, $callback, string $name = ''): static
     {
         foreach ($array as $methodName) {
             if (in_array($methodName, HttpMethod::all())) {
-                $this->registerRoute($param, $callback, $methodName);
+                $this->registerRoute($param, $callback, $methodName, $name);
             }
         }
 
@@ -132,12 +133,13 @@ class Router extends RouterBase implements RouterInterface
      *
      * @param $param
      * @param $callback
+     * @param string $name
      * @return $this
      */
-    public function any($param, $callback): static
+    public function any($param, $callback, string $name = ''): static
     {
         foreach (HttpMethod::all() as $methodName) {
-            $this->registerRoute($param, $callback, $methodName);
+            $this->registerRoute($param, $callback, $methodName, $name);
         }
 
         return $this;

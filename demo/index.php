@@ -58,9 +58,6 @@ $router = new Router([
 //    return 'options content. Server request method:'. $_SERVER['REQUEST_METHOD'];
 //});
 //
-//$router->match(['GET', 'POST'], 'getpost', function() {
-//    return 'GET POST content. Server request method:'. $_SERVER['REQUEST_METHOD'];
-//});
 //
 
 // $router->get('controller', 'Demo\Controller@index')->name('controller.index');
@@ -83,7 +80,7 @@ $router = new Router([
 //    return "Your name is - $name";
 //});
 
- $router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => 'user/{userId}', 'namePrefix' => 'user.'], function () use ($router) {
+// $router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => 'user/{userId}', 'namePrefix' => 'user.'], function () use ($router) {
 //    $router->get('profile', function ($userId){
 //        return "profile route: User id: $userId";
 //    })->name('profile');
@@ -92,8 +89,8 @@ $router = new Router([
 //        return "action route: User id: $userId and action id $actionId";
 //    })->name('action');
 
-    $router->crud('/test', \Demo\Controller::class);
- });
+//    $router->crud('/test', \Demo\Controller::class);
+// });
 
 //$router->crud('/test', \Demo\Controller::class);
 //$router->get('test/{param}/edit', \Demo\Controller::class.'@edit');
@@ -111,9 +108,16 @@ $router = new Router([
 //   })->name('action');
 //});
 
-// $router->get('user/{id}', 'Demo\Controller@user')->name('controller.user');
+// $router->any('/another', 'Demo\Controller@user')->name('controller.user');
+
+$router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => 'user/{userId}', 'namePrefix' => 'user.'], function () use ($router) {
+//    $router->match(['GET', 'POST'], '/test', \Demo\Controller::class.'@simpleIndex2')->name('test.simpleIndex2');
+    $router->match(['GET', 'POST'], '/test', \Demo\Controller::class.'@simpleIndex2', 'test.simpleIndex2');
+//    $router->any('/test', \Demo\Controller::class.'@simpleIndex2');
+});
 
 dd($router->getRouteList());
 $router->run();
 
 // print_r($router->getUrlByName('controller.user', ['id' => 1]));
+print_r($router->getUrlByName('user.test.simpleIndex2'));
