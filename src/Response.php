@@ -157,11 +157,12 @@ class Response
      * Error response
      *
      * @param string $message
+     * @param int $statusCode
      * @return $this
      */
-    public function errorResponse(string $message = 'Something went wrong'): static
+    public function errorResponse(string $message = 'Something went wrong', int $statusCode = HttpResponseCode::FORBIDDEN): static
     {
-        $this->setStatusCode(HttpResponseCode::NOT_FOUND)
+        $this->setStatusCode($statusCode)
             ->setHeaderHtml()
             ->body($message);
 

@@ -6,12 +6,12 @@ use Roolith\Route\Middleware;
 use Roolith\Route\Request;
 use Roolith\Route\Response;
 
-class AuthMiddleware extends Middleware
+class AnotherMiddleware extends Middleware
 {
     public int $status_code = HttpResponseCode::UNAUTHORIZED;
 
     public function process(Request $request, Response $response): bool
     {
-        return true;
+        return false;
     }
 }

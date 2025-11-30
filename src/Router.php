@@ -240,10 +240,21 @@ class Router extends RouterBase implements RouterInterface
         $router = $this->getRequestedRouter($this->request->getRequestedUrl(), $methodName);
 
         if (isset($router['middleware'])) {
-            $isProcessNext = call_user_func([new $router['middleware'](), 'process'], $this->request, $this->response);
-            if (!$isProcessNext) {
-                $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::BAD_REQUEST, "Invalid request"));
-                return $this;
+            if (!is_array($router['middleware'])) {
+                $router['middleware'] = [$router['middleware']];
+            }
+
+            foreach ($router['middleware'] as $middleware) {
+                /* @var Middleware $middlewareInstance */
+                $middlewareInstance = new $middleware();
+                $isProcessNext = $middlewareInstance->process($this->request, $this->response);
+
+                if (!$isProcessNext) {
+                    $html = $this->getViewHtmlByStatusCode(HttpResponseCode::BAD_REQUEST, "Invalid request");
+                    $this->response->errorResponse($html, $middlewareInstance->status_code);
+
+                    return $this;
+                }
             }
         }
 
@@ -428,7 +439,23 @@ class Router extends RouterBase implements RouterInterface
             return false;
         }
 
-        $this->routerArray[count($this->routerArray) - 1]['middleware'] = $middlewareClass;
+        $currentRouterMiddleware = $this->routerArray[count($this->routerArray) - 1]['middleware'];
+
+        $middlewareList = [];
+
+        if ($currentRouterMiddleware) {
+            if (is_array($currentRouterMiddleware)) {
+                foreach ($currentRouterMiddleware as $middleware) {
+                    $middlewareList[] = $middleware;
+                }
+            } else {
+                $middlewareList[] = $currentRouterMiddleware;
+            }
+        }
+
+        $middlewareList[] = $middlewareClass;
+
+        $this->routerArray[count($this->routerArray) - 1]['middleware'] = $middlewareList;
 
         return $this;
     }

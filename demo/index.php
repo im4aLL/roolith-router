@@ -110,14 +110,19 @@ $router = new Router([
 
 // $router->any('/another', 'Demo\Controller@user')->name('controller.user');
 
+$router->get('/test-0', \Demo\Controller::class . '@index')->name('test');
 $router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => 'user/{userId}', 'namePrefix' => 'user.'], function () use ($router) {
 //    $router->match(['GET', 'POST'], '/test', \Demo\Controller::class.'@simpleIndex2')->name('test.simpleIndex2');
-    $router->match(['GET', 'POST'], '/test', \Demo\Controller::class.'@simpleIndex2', 'test.simpleIndex2');
+//    $router->match(['GET', 'POST'], '/test', \Demo\Controller::class.'@simpleIndex2', 'test.simpleIndex2');
 //    $router->any('/test', \Demo\Controller::class.'@simpleIndex2');
+
+    $router->get('/test-1', \Demo\Controller::class . '@index')->name('test');
+    $router->get('/test-2', \Demo\Controller::class . '@index')->middleware(\Demo\AnotherMiddleware::class)->middleware(\Demo\ThirdMiddleware::class)->name('test');
+    $router->get('/test-3', \Demo\Controller::class . '@index')->name('test');
 });
 
 dd($router->getRouteList());
 $router->run();
 
 // print_r($router->getUrlByName('controller.user', ['id' => 1]));
-print_r($router->getUrlByName('user.test.simpleIndex2'));
+//print_r($router->getUrlByName('user.test.simpleIndex2'));
