@@ -15,9 +15,9 @@
         "psr-4": {"Roolith\\Route\\": "src/"}
     },
     "license": "MIT",
-	"version": "1.2.0",
-	"minimum-stability": "stable",
+    "minimum-stability": "stable",
     "require": {
+        "php": ">=8.0",
         "ext-json": "*",
         "php-di/php-di": "^7.0",
         "ext-mbstring": "*"
