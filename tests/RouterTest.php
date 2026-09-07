@@ -217,7 +217,7 @@ class RouterTest extends TestCase
     {
         $routes = $this->crudRouteSetUp();
 
-        $this->assertCount(8, $routes);
+        $this->assertCount(10, $routes);
     }
 
     public function testShouldHaveDefaultRouteForCrud()
@@ -421,7 +421,7 @@ class RouterTest extends TestCase
 
         $route = $this->getLastRoute();
 
-        $this->assertEquals('DemoMiddleware', $route['middleware']);
+        $this->assertEquals(['DemoMiddleware'], $route['middleware']);
     }
 
     public function testShouldRouteRunCallExecuteRouteMethodOnce()

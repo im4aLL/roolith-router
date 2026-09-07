@@ -14,7 +14,7 @@ class Router extends RouterBase implements RouterInterface
      * @param Response|null $response
      * @param Request|null $request
      */
-    public function __construct($settings = [], Response $response = null, Request $request = null)
+    public function __construct($settings = [], ?Response $response = null, ?Request $request = null)
     {
         $response = $response ? $response : new Response();
         $request = $request ? $request : new Request();
@@ -439,7 +439,7 @@ class Router extends RouterBase implements RouterInterface
             return false;
         }
 
-        $currentRouterMiddleware = $this->routerArray[count($this->routerArray) - 1]['middleware'];
+        $currentRouterMiddleware = $this->routerArray[count($this->routerArray) - 1]['middleware'] ?? null;
 
         $middlewareList = [];
 

@@ -103,6 +103,6 @@ class ResponseTest extends TestCase
     {
         $this->response->errorResponse();
 
-        $this->assertSame(HttpResponseCode::NOT_FOUND, $this->response->getStatusCode());
+        $this->assertSame(HttpResponseCode::INTERNAL_SERVER_ERROR, $this->response->getStatusCode());
     }
 }

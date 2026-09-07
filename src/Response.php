@@ -160,7 +160,7 @@ class Response
      * @param int $statusCode
      * @return $this
      */
-    public function errorResponse(string $message = 'Something went wrong', int $statusCode = HttpResponseCode::FORBIDDEN): static
+    public function errorResponse(string $message = 'Something went wrong', int $statusCode = HttpResponseCode::INTERNAL_SERVER_ERROR): static
     {
         $this->setStatusCode($statusCode)
             ->setHeaderHtml()

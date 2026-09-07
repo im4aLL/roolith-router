@@ -150,7 +150,7 @@ abstract class RouterBase
     protected function executeRouteMethod($router): static
     {
         if (!$router) {
-            $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::NOT_FOUND, "Route doesn't exists"));
+            $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::NOT_FOUND, "Route doesn't exists"), HttpResponseCode::NOT_FOUND);
             return $this;
         }
 
@@ -169,7 +169,7 @@ abstract class RouterBase
             $classMethodName = $classMethodArray[1];
 
             if (!method_exists($className, $classMethodName)) {
-                $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::NOT_FOUND, "$classMethodName method doesn't exist in $className"));
+                $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::NOT_FOUND, "$classMethodName method doesn't exist in $className"), HttpResponseCode::NOT_FOUND);
 
                 return $this;
             }
@@ -197,11 +197,11 @@ abstract class RouterBase
         try {
             $classDI = $this->container->get($className);
         } catch (DependencyException|NotFoundException $e) {
-            $this->response->errorResponse($e->getMessage());
+            $this->response->errorResponse($e->getMessage(), HttpResponseCode::INTERNAL_SERVER_ERROR);
         }
 
         if (!isset($classDI)) {
-            $this->response->errorResponse('Dependency Injection Error On '.$className. ' ' . $classMethodName);
+            $this->response->errorResponse('Dependency Injection Error On '.$className. ' ' . $classMethodName, HttpResponseCode::INTERNAL_SERVER_ERROR);
 
             return;
         }
