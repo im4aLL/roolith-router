@@ -223,7 +223,52 @@ class Router extends RouterBase implements RouterInterface
             return $callback.'@'.$methodName;
         }
 
+        if (is_array($callback)) {
+            if (count($callback) === 1 && isset($callback[0]) && is_string($callback[0])) {
+                return [$callback[0], $methodName];
+            }
+
+            if (count($callback) === 2 && isset($callback[0], $callback[1]) && is_string($callback[0]) && is_string($callback[1])) {
+                return [$callback[0], $methodName];
+            }
+        }
+
         return $callback;
+    }
+
+    /**
+     * Normalize array controller callback to string form
+     *
+     * @param $callback
+     * @return mixed
+     */
+    private function normalizeControllerCallback(mixed $callback): mixed
+    {
+        if (!is_array($callback)) {
+            return $callback;
+        }
+
+        if (is_callable($callback)) {
+            return $callback;
+        }
+
+        if (count($callback) !== 2) {
+            return $callback;
+        }
+
+        if (!isset($callback[0], $callback[1])) {
+            return $callback;
+        }
+
+        if (!is_string($callback[0]) || !is_string($callback[1])) {
+            return $callback;
+        }
+
+        if ($callback[0] === '' || $callback[1] === '') {
+            return '';
+        }
+
+        return $callback[0].'@'.$callback[1];
     }
 
     /**
@@ -568,6 +613,8 @@ class Router extends RouterBase implements RouterInterface
      */
     private function registerRoute(string|array $param, mixed $callback, string $method, string $name = ''): void
     {
+        $callback = $this->normalizeControllerCallback($callback);
+
         if ($param === null || $param === '' || $param === false || $callback === null || $callback === '' || $callback === false) {
             return;
         }
@@ -817,7 +864,7 @@ class Router extends RouterBase implements RouterInterface
         }
 
         if (isset($settings['use_di'])) {
-            $this->setUseDi($settings['use_di']);
+            $this->setUseDI($settings['use_di']);
         }
 
     }

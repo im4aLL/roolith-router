@@ -74,6 +74,60 @@ class DispatchNeedsDependency
     }
 }
 
+class DispatchParamController
+{
+    public function show(string $id): string
+    {
+        return 'show '.$id;
+    }
+}
+
+class DispatchStaticController
+{
+    public static function hello(): string
+    {
+        return 'static hello';
+    }
+}
+
+class DispatchCrudArrayController
+{
+    public function index(): string
+    {
+        return 'crud index';
+    }
+
+    public function create(): string
+    {
+        return 'crud create';
+    }
+
+    public function show(string $id): string
+    {
+        return 'crud show '.$id;
+    }
+
+    public function edit(string $id): string
+    {
+        return 'crud edit '.$id;
+    }
+
+    public function store(): string
+    {
+        return 'crud store';
+    }
+
+    public function update(string $id): string
+    {
+        return 'crud update '.$id;
+    }
+
+    public function destroy(string $id): string
+    {
+        return 'crud destroy '.$id;
+    }
+}
+
 class DispatchEncoderHarness
 {
     use EncoderTrait;
@@ -398,5 +452,170 @@ class DispatchTest extends TestCase
         $this->assertSame(5, $harness->anythingToUtf8(5));
         $this->assertNull($harness->anythingToUtf8(null));
         $this->assertTrue($harness->anythingToUtf8(true));
+    }
+
+    public function testArrayCallbackDispatchesSameAsString()
+    {
+        [$stringRouter, $stringResponse] = $this->routerFor('http://test.com/hello');
+        $stringRouter->get('/hello', 'DispatchSimpleController@hello');
+        $stringOutput = $this->runRouter($stringRouter);
+
+        [$arrayRouter, $arrayResponse] = $this->routerFor('http://test.com/hello');
+        $arrayRouter->get('/hello', ['DispatchSimpleController', 'hello']);
+        $arrayOutput = $this->runRouter($arrayRouter);
+
+        $this->assertSame($stringOutput, $arrayOutput);
+        $this->assertSame('hello', $arrayOutput);
+        $this->assertSame($stringResponse->getStatusCode(), $arrayResponse->getStatusCode());
+    }
+
+    public function testArrayCallbackPassesParamPayload()
+    {
+        [$router, $response] = $this->routerFor('http://test.com/user/42');
+        $router->get('/user/{id}', ['DispatchParamController', 'show']);
+
+        $output = $this->runRouter($router);
+
+        $this->assertSame(HttpResponseCode::OK, $response->getStatusCode());
+        $this->assertSame('show 42', $output);
+    }
+
+    public function testArrayCallbackWorksWithLegacyDi()
+    {
+        [$router, $response] = $this->routerFor('http://test.com/hello', 'GET', ['use_di' => false]);
+        $router->get('/hello', ['DispatchSimpleController', 'hello']);
+
+        $output = $this->runRouter($router);
+
+        $this->assertSame(HttpResponseCode::OK, $response->getStatusCode());
+        $this->assertSame('hello', $output);
+    }
+
+    public function testArrayCallbackMissingClassEmitsSingle404()
+    {
+        [$router, $response] = $this->routerFor('http://test.com/gone');
+        $router->get('/gone', ['Missing_Dispatch_Controller_XYZ', 'run']);
+
+        $output = $this->runRouter($router);
+
+        $this->assertSame(HttpResponseCode::NOT_FOUND, $response->getStatusCode());
+        $this->assertSame("Class Missing_Dispatch_Controller_XYZ doesn't exist", $output);
+    }
+
+    public function testArrayCallbackMissingMethodEmitsSingle404()
+    {
+        [$router, $response] = $this->routerFor('http://test.com/method');
+        $router->get('/method', ['DispatchSimpleController', 'nope']);
+
+        $output = $this->runRouter($router);
+
+        $this->assertSame(HttpResponseCode::NOT_FOUND, $response->getStatusCode());
+        $this->assertSame("nope method doesn't exist in DispatchSimpleController", $output);
+    }
+
+    public function testInvalidArrayCallbackEmitsSingle500()
+    {
+        [$router, $response] = $this->routerFor('http://test.com/bad');
+        $router->get('/bad', ['OnlyOne']);
+
+        $output = $this->runRouter($router);
+
+        $this->assertSame(HttpResponseCode::INTERNAL_SERVER_ERROR, $response->getStatusCode());
+        $this->assertSame('Invalid route handler', $output);
+    }
+
+    public function testMatchWithArrayCallbackDispatches()
+    {
+        [$router, $response] = $this->routerFor('http://test.com/hello', 'POST');
+        $router->match(['GET', 'POST'], '/hello', ['DispatchSimpleController', 'hello']);
+
+        $output = $this->runRouter($router);
+
+        $this->assertSame(HttpResponseCode::OK, $response->getStatusCode());
+        $this->assertSame('hello', $output);
+    }
+
+    public function testAnyWithArrayCallbackDispatches()
+    {
+        [$router, $response] = $this->routerFor('http://test.com/hello', 'DELETE');
+        $router->any('/hello', ['DispatchSimpleController', 'hello']);
+
+        $output = $this->runRouter($router);
+
+        $this->assertSame(HttpResponseCode::OK, $response->getStatusCode());
+        $this->assertSame('hello', $output);
+    }
+
+    public function testCrudWithSingleElementArrayDispatches()
+    {
+        [$router, $response] = $this->routerFor('http://test.com/items');
+        $router->crud('/items', ['DispatchCrudArrayController']);
+
+        $output = $this->runRouter($router);
+
+        $this->assertSame(HttpResponseCode::OK, $response->getStatusCode());
+        $this->assertSame('crud index', $output);
+    }
+
+    public function testCrudWithIgnoredMethodDispatchesCrudMethod()
+    {
+        [$router, $response] = $this->routerFor('http://test.com/items/42');
+        $router->crud('/items', ['DispatchCrudArrayController', 'ignored']);
+
+        $output = $this->runRouter($router);
+
+        $this->assertSame(HttpResponseCode::OK, $response->getStatusCode());
+        $this->assertSame('crud show 42', $output);
+    }
+
+    public function testInstanceCallableStaysArrayAndDispatches()
+    {
+        $controller = new DispatchSimpleController();
+
+        [$router, $response] = $this->routerFor('http://test.com/hello');
+        $router->get('/hello', [$controller, 'hello']);
+
+        $routes = $router->getRouteList();
+
+        $this->assertSame([$controller, 'hello'], $routes[0]['execute']);
+
+        $output = $this->runRouter($router);
+
+        $this->assertSame(HttpResponseCode::OK, $response->getStatusCode());
+        $this->assertSame('hello', $output);
+    }
+
+    public function testStaticCallableStaysArrayAndDispatches()
+    {
+        [$router, $response] = $this->routerFor('http://test.com/static');
+        $router->get('/static', ['DispatchStaticController', 'hello']);
+
+        $routes = $router->getRouteList();
+
+        $this->assertSame(['DispatchStaticController', 'hello'], $routes[0]['execute']);
+
+        $output = $this->runRouter($router);
+
+        $this->assertSame(HttpResponseCode::OK, $response->getStatusCode());
+        $this->assertSame('static hello', $output);
+    }
+
+    public function testInvalidArrayShapesEmitSingle500()
+    {
+        $callbacks = [
+            ['A', 'B', 'C'],
+            ['a' => 1, 'b' => 2],
+            [123, null],
+        ];
+
+        foreach ($callbacks as $callback) {
+            [$router, $response] = $this->routerFor('http://test.com/bad');
+            $router->get('/bad', $callback);
+
+            $output = $this->runRouter($router);
+
+            $this->assertSame(HttpResponseCode::INTERNAL_SERVER_ERROR, $response->getStatusCode());
+            $this->assertSame('Invalid route handler', $output);
+        }
     }
 }

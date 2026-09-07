@@ -27,6 +27,22 @@ class RouterForTest extends Router
     }
 }
 
+class RouterArrayInstanceFixture
+{
+    public function hello(): string
+    {
+        return 'hello';
+    }
+}
+
+class RouterArrayStaticFixture
+{
+    public static function hello(): string
+    {
+        return 'static hello';
+    }
+}
+
 class RouterTest extends TestCase
 {
     private Router $router;
@@ -902,4 +918,120 @@ class RouterTest extends TestCase
         $this->assertSame('/a/1/d', $url);
     }
 
+    public function testShouldNormalizeArrayCallbackToStringForm()
+    {
+        $stringRouter = new Router();
+        $stringRouter->get('/', 'TestController@index');
+
+        $arrayRouter = new Router();
+        $arrayRouter->get('/', ['TestController', 'index']);
+
+        $stringRoutes = $stringRouter->getRouteList();
+        $arrayRoutes = $arrayRouter->getRouteList();
+
+        $this->assertSame($stringRoutes[0]['execute'], $arrayRoutes[0]['execute']);
+        $this->assertSame('TestController@index', $arrayRoutes[0]['execute']);
+    }
+
+    public function testShouldRegisterMatchWithArrayCallback()
+    {
+        $this->router->match(['GET', 'POST'], '/user', ['TestController', 'index']);
+
+        $routes = $this->router->getRouteList();
+
+        $this->assertCount(2, $routes);
+
+        foreach ($routes as $route) {
+            $this->assertSame('TestController@index', $route['execute']);
+        }
+    }
+
+    public function testShouldRegisterAnyWithArrayCallback()
+    {
+        $this->router->any('/user', ['TestController', 'index']);
+
+        $routes = $this->router->getRouteList();
+
+        $this->assertCount(6, $routes);
+
+        foreach ($routes as $route) {
+            $this->assertSame('TestController@index', $route['execute']);
+        }
+    }
+
+    public function testShouldExpandCrudWithSingleElementArray()
+    {
+        $this->router->crud($this->url, ['TestController']);
+
+        $routes = $this->router->getRouteList();
+
+        $this->assertCount(10, $routes);
+
+        foreach (['index', 'create', 'show', 'edit', 'store', 'update', 'destroy'] as $name) {
+            $actualRoute = $this->findItemInArray($routes, ['execute' => 'TestController@'.$name]);
+
+            $this->assertIsArray($actualRoute);
+        }
+    }
+
+    public function testShouldExpandCrudWithArrayIgnoringOriginalMethod()
+    {
+        $this->router->crud($this->url, ['TestController', 'ignored']);
+
+        $routes = $this->router->getRouteList();
+
+        $this->assertCount(10, $routes);
+
+        foreach (['index', 'create', 'show', 'edit', 'store', 'update', 'destroy'] as $name) {
+            $actualRoute = $this->findItemInArray($routes, ['execute' => 'TestController@'.$name]);
+
+            $this->assertIsArray($actualRoute);
+        }
+
+        $this->assertFalse($this->findItemInArray($routes, ['execute' => 'TestController@ignored']));
+    }
+
+    public function testShouldPreserveInstanceCallable()
+    {
+        $controller = new RouterArrayInstanceFixture();
+        $this->router->get('/instance', [$controller, 'hello']);
+
+        $route = $this->getLastRoute();
+
+        $this->assertSame([$controller, 'hello'], $route['execute']);
+    }
+
+    public function testShouldPreserveStaticCallable()
+    {
+        $this->router->get('/static', ['RouterArrayStaticFixture', 'hello']);
+
+        $route = $this->getLastRoute();
+
+        $this->assertSame(['RouterArrayStaticFixture', 'hello'], $route['execute']);
+    }
+
+    public function testShouldSkipEmptyStringCallbackParts()
+    {
+        $this->router->get('/skipped', ['', '']);
+
+        $this->assertCount(0, $this->router->getRouteList());
+
+        $this->router->get('/skipped', ['TestController', '']);
+
+        $this->assertCount(0, $this->router->getRouteList());
+
+        $this->router->get('/skipped', ['', 'index']);
+
+        $this->assertCount(0, $this->router->getRouteList());
+    }
+
+    public function testShouldAllowZeroStringCallbackParts()
+    {
+        $this->router->get('/zero', ['0', '0']);
+
+        $routes = $this->router->getRouteList();
+
+        $this->assertCount(1, $routes);
+        $this->assertSame('0@0', $routes[0]['execute']);
+    }
 }

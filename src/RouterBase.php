@@ -89,6 +89,12 @@ abstract class RouterBase
         return $this;
     }
 
+    /**
+     * Set whether to use dependency injection for controllers
+     *
+     * @param $useDI
+     * @return $this
+     */
     public function setUseDI(bool $useDI): static
     {
         $this->use_di = $useDI;
