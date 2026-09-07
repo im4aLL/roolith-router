@@ -6,12 +6,12 @@ use Roolith\Route\Response;
 
 class ResponseForTest extends Response
 {
-    public function outputJson($content): bool|string
+    public function outputJson(mixed $content): bool|string
     {
         return parent::outputJson($content);
     }
 
-    public function outputHtml($content): array|string
+    public function outputHtml(mixed $content): mixed
     {
         return parent::outputHtml($content);
     }
@@ -101,7 +101,11 @@ class ResponseTest extends TestCase
 
     public function testShouldHaveErrorResponse()
     {
+        // Covers 5.3 hygiene: captures echoed error body so CLI output
+        // stays clean and headers_sent() is not polluted for later tests.
+        ob_start();
         $this->response->errorResponse();
+        ob_get_clean();
 
         $this->assertSame(HttpResponseCode::INTERNAL_SERVER_ERROR, $this->response->getStatusCode());
     }
@@ -121,16 +125,23 @@ class ResponseTest extends TestCase
 
     public function testShouldStayHeaderSafeAfterOutput()
     {
+        // Covers 5.3 hygiene: header sends are CLI-safe via headers_sent()
+        // guards in src; this test asserts state only, never real headers,
+        // so it stays warning-free whether or not output was already sent.
         $response = new ResponseForTest();
 
-        echo 'prior output';
         $response->setStatusCode(HttpResponseCode::OK);
+        $this->assertSame(HttpResponseCode::OK, $response->getStatusCode());
+
+        ob_start();
+        echo 'prior output';
         $response->setHeaderJson();
         $response->redirect("http://test.com/target\r\nX-Injected: 1");
+        $buffered = ob_get_clean();
 
-        $this->assertSame(HttpResponseCode::OK, $response->getStatusCode());
+        $this->assertSame('prior output', $buffered);
         $this->assertTrue($response->hasHeaderContentType());
-        $this->expectOutputString('prior output');
+        $this->assertSame(HttpResponseCode::OK, $response->getStatusCode());
     }
 
     public function testShouldSurfaceJsonEncodingFailure()

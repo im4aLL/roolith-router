@@ -28,7 +28,7 @@ class Router extends RouterBase implements RouterInterface
      * @param Response|null $response
      * @param Request|null $request
      */
-    public function __construct($settings = [], ?Response $response = null, ?Request $request = null)
+    public function __construct(array $settings = [], ?Response $response = null, ?Request $request = null)
     {
         $response = $response ? $response : new Response();
         $request = $request ? $request : new Request();
@@ -45,7 +45,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return $this
      */
-    public function get($param, $callback): static
+    public function get(string|array $param, mixed $callback): static
     {
         $this->beginRegistrationSlice();
         $this->registerRoute($param, $callback, HttpMethod::GET);
@@ -60,7 +60,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return $this
      */
-    public function post($param, $callback): static
+    public function post(string|array $param, mixed $callback): static
     {
         $this->beginRegistrationSlice();
         $this->registerRoute($param, $callback, HttpMethod::POST);
@@ -75,7 +75,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return $this
      */
-    public function put($param, $callback): static
+    public function put(string|array $param, mixed $callback): static
     {
         $this->beginRegistrationSlice();
         $this->registerRoute($param, $callback, HttpMethod::PUT);
@@ -90,7 +90,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return $this
      */
-    public function patch($param, $callback): static
+    public function patch(string|array $param, mixed $callback): static
     {
         $this->beginRegistrationSlice();
         $this->registerRoute($param, $callback, HttpMethod::PATCH);
@@ -105,7 +105,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return $this
      */
-    public function delete($param, $callback): static
+    public function delete(string|array $param, mixed $callback): static
     {
         $this->beginRegistrationSlice();
         $this->registerRoute($param, $callback, HttpMethod::DELETE);
@@ -120,7 +120,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return $this
      */
-    public function options($param, $callback): static
+    public function options(string|array $param, mixed $callback): static
     {
         $this->beginRegistrationSlice();
         $this->registerRoute($param, $callback, HttpMethod::OPTIONS);
@@ -137,7 +137,7 @@ class Router extends RouterBase implements RouterInterface
      * @param string $name
      * @return $this
      */
-    public function match($array, $param, $callback, string $name = ''): static
+    public function match(array $array, string|array $param, mixed $callback, string $name = ''): static
     {
         $this->beginRegistrationSlice();
 
@@ -160,7 +160,7 @@ class Router extends RouterBase implements RouterInterface
      * @param string $name
      * @return $this
      */
-    public function any($param, $callback, string $name = ''): static
+    public function any(string|array $param, mixed $callback, string $name = ''): static
     {
         $this->beginRegistrationSlice();
 
@@ -178,7 +178,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return $this
      */
-    public function crud($param, $callback): static
+    public function crud(string $param, mixed $callback): static
     {
         $this->beginRegistrationSlice();
 
@@ -217,7 +217,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $methodName
      * @return mixed
      */
-    private function crudCallback($callback, $methodName): mixed
+    private function crudCallback(mixed $callback, string $methodName): mixed
     {
         if (is_string($callback)) {
             return $callback.'@'.$methodName;
@@ -238,7 +238,7 @@ class Router extends RouterBase implements RouterInterface
      * @param int $statusCode
      * @return $this
      */
-    public function redirect($fromUrl, $toUrl, int $statusCode = HttpResponseCode::MOVED_PERMANENTLY): static
+    public function redirect(string $fromUrl, string $toUrl, int $statusCode = HttpResponseCode::MOVED_PERMANENTLY): static
     {
         $this->beginRegistrationSlice();
         $this->registerRedirectRoute($fromUrl, $toUrl, $statusCode);
@@ -258,7 +258,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $callback
      * @return Router
      */
-    public function group($settings, $callback): static
+    public function group(array $settings, callable $callback): static
     {
         $this->groupSettingsStack[] = $this->groupSettings;
         $this->groupSettings = $this->mergeGroupSettings($this->groupSettings, $settings);
@@ -279,7 +279,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $inner
      * @return array
      */
-    private function mergeGroupSettings($outer, $inner): array
+    private function mergeGroupSettings(array $outer, array $inner): array
     {
         $merged = is_array($outer) ? $outer : [];
 
@@ -398,7 +398,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $middleware
      * @return Middleware|null
      */
-    private function resolveMiddleware($middleware): ?Middleware
+    private function resolveMiddleware(mixed $middleware): ?Middleware
     {
         if ($middleware instanceof Middleware) {
             return $middleware;
@@ -496,7 +496,7 @@ class Router extends RouterBase implements RouterInterface
             return false;
         }
 
-        $routerPattern = implode('\/', array_map(function ($segment) {
+        $routerPattern = implode('\/', array_map(function (string $segment): string {
             $parts = preg_split('/({[^}]*})/', $segment, -1, PREG_SPLIT_DELIM_CAPTURE);
             $built = '';
 
@@ -566,7 +566,7 @@ class Router extends RouterBase implements RouterInterface
      * @param string $name
      * @return void
      */
-    private function registerRoute($param, $callback, $method, string $name = ''): void
+    private function registerRoute(string|array $param, mixed $callback, string $method, string $name = ''): void
     {
         if ($param === null || $param === '' || $param === false || $callback === null || $callback === '' || $callback === false) {
             return;
@@ -606,7 +606,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $statusCode
      * @return void
      */
-    private function registerRedirectRoute($fromUrl, $toUrl, $statusCode): void
+    private function registerRedirectRoute(string $fromUrl, string $toUrl, int $statusCode): void
     {
         if (str_contains($toUrl, '://')) {
             $redirectUrl = $toUrl;
@@ -641,7 +641,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $groupSettings
      * @return void
      */
-    private function addGroupSettingsToRoute(&$route, $groupSettings): void
+    private function addGroupSettingsToRoute(array &$route, array $groupSettings): void
     {
         if (isset($groupSettings['middleware'])) {
             $currentMiddleware = isset($route['middleware']) ? (array) $route['middleware'] : [];
@@ -671,7 +671,7 @@ class Router extends RouterBase implements RouterInterface
      * @param string $name
      * @return void
      */
-    private function addRouteToRouteArray(&$routeArray, $param, $method, $callback, string $name = ''): void
+    private function addRouteToRouteArray(array &$routeArray, string|array $param, string $method, mixed $callback, string $name = ''): void
     {
         if (is_string($param) && preg_match('/\{[^}]*\?\}/', $param)) {
             $paramArray = explode('/', $param);
@@ -708,7 +708,7 @@ class Router extends RouterBase implements RouterInterface
      * @param string $name
      * @return void
      */
-    private function appendExpandedRoute(&$routeArray, $segments, $method, $callback, string $name = ''): void
+    private function appendExpandedRoute(array &$routeArray, array $segments, string $method, mixed $callback, string $name = ''): void
     {
         // $path always starts with '/'; an empty segment list maps to root '/'.
         $path = '/'.ltrim(implode('/', $segments), '/');
@@ -733,7 +733,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $string
      * @return $this|bool
      */
-    public function name($string): bool|static
+    public function name(string $string): bool|static
     {
         if (count($this->routerArray) == 0) {
             return false;
@@ -753,7 +753,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $middlewareClass
      * @return $this|bool
      */
-    public function middleware($middlewareClass): bool|static
+    public function middleware(mixed $middlewareClass): bool|static
     {
         if (count($this->routerArray) == 0) {
             return false;
@@ -806,7 +806,7 @@ class Router extends RouterBase implements RouterInterface
      * @param $settings
      * @return void
      */
-    private function applySettings($settings): void
+    private function applySettings(array $settings): void
     {
         if (isset($settings['base_url'])) {
             $this->setBaseUrl($settings['base_url']);

@@ -15,7 +15,7 @@ trait EncoderTrait
      * @param bool $deep
      * @return mixed
      */
-    public function anythingToUtf8($var, bool $deep = TRUE): mixed
+    public function anythingToUtf8(mixed $var, bool $deep = true): mixed
     {
         if (is_array($var)) {
             foreach($var as $key => $value){

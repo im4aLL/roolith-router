@@ -83,6 +83,12 @@ class DispatchTest extends TestCase
 {
     private ?string $previousRequestMethod = null;
 
+    public function setUp(): void
+    {
+        parent::setUp();
+        $this->previousRequestMethod = $_SERVER['REQUEST_METHOD'] ?? null;
+    }
+
     public function tearDown(): void
     {
         if ($this->previousRequestMethod === null && isset($_SERVER['REQUEST_METHOD'])) {
@@ -96,7 +102,6 @@ class DispatchTest extends TestCase
 
     private function mockRequest(string $currentUrl, string $method = 'GET'): Request
     {
-        $this->previousRequestMethod = $_SERVER['REQUEST_METHOD'] ?? null;
         $_SERVER['REQUEST_METHOD'] = $method;
 
         $request = $this->getMockBuilder(Request::class)->onlyMethods(['getCurrentUrl'])->getMock();
@@ -301,6 +306,25 @@ class DispatchTest extends TestCase
     {
         [$router, $response] = $this->routerFor('http://test.com/old');
         $router->redirect('/old', '/new');
+
+        ob_start();
+        $result = $router->run();
+        $output = (string) ob_get_clean();
+
+        $continued = true;
+
+        $this->assertSame($router, $result);
+        $this->assertTrue($continued);
+        $this->assertSame(HttpResponseCode::MOVED_PERMANENTLY, $response->getStatusCode());
+        $this->assertSame('', $output);
+    }
+
+    public function testGroupedRedirectDispatchesOnPost()
+    {
+        [$router, $response] = $this->routerFor('http://test.com/admin/old', 'POST');
+        $router->group(['urlPrefix' => 'admin'], function ($router) {
+            $router->redirect('/old', 'target');
+        });
 
         ob_start();
         $result = $router->run();

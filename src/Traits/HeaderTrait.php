@@ -42,9 +42,9 @@ trait HeaderTrait
      * handle it (long-running contexts). Skipped when headers already
      * sent (CLI/tests) to stay warning-free.
      *
-     * @param $url
+     * @param mixed $url
      */
-    public function redirect($url): void
+    public function redirect(mixed $url): void
     {
         $safeUrl = str_replace(["\r", "\n"], '', (string) $url);
 

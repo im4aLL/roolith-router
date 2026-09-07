@@ -49,7 +49,7 @@ class RouteTableRenderer
             }
         }
 
-        $separator = '+' . implode('+', array_map(function ($width) {
+        $separator = '+' . implode('+', array_map(function (int $width): string {
             return str_repeat('-', $width + 2);
         }, $widths)) . "+\n";
 
@@ -181,7 +181,7 @@ class RouteTableRenderer
         }
 
         if (is_array($middleware)) {
-            $names = array_map(function ($item) {
+            $names = array_map(function (mixed $item): string {
                 if (is_string($item)) {
                     return $item;
                 }
@@ -193,7 +193,7 @@ class RouteTableRenderer
                 return (string) $item;
             }, $middleware);
 
-            $names = array_filter($names, function ($name) {
+            $names = array_filter($names, function (string $name): bool {
                 return $name !== '';
             });
 

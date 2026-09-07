@@ -182,7 +182,7 @@ class Response
      * @param $content
      * @return false|string
      */
-    protected function outputJson($content): bool|string
+    protected function outputJson(mixed $content): bool|string
     {
         $json = json_encode($this->anythingToUtf8($content));
 
@@ -199,7 +199,7 @@ class Response
      * @param $content
      * @return mixed
      */
-    protected function outputHtml($content): mixed
+    protected function outputHtml(mixed $content): mixed
     {
         return $this->anythingToUtf8($content);
     }

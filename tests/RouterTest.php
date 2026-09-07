@@ -6,12 +6,12 @@ use Roolith\Route\Router;
 
 class RouterForTest extends Router
 {
-    public function getRequestedRouter($path, $method): mixed
+    public function getRequestedRouter(string $path, string $method): mixed
     {
         return parent::getRequestedRouter($path, $method);
     }
 
-    public function matchPattern($routerPath, $url): bool|array
+    public function matchPattern(string $routerPath, string $url): bool|array
     {
         return parent::matchPattern($routerPath, $url);
     }
@@ -21,7 +21,7 @@ class RouterForTest extends Router
         return parent::joinUrl($base, $path);
     }
     
-    public function executeRouteMethod($router): static
+    public function executeRouteMethod(mixed $router): static
     {
         return parent::executeRouteMethod($router);
     }
@@ -424,8 +424,11 @@ class RouterTest extends TestCase
 
     public function testShouldRouteRunCallExecuteRouteMethodOnce()
     {
-        $request = $this->getMockBuilder(Request::class)->onlyMethods(['getCurrentUrl'])->getMock();
-        $request->method('getCurrentUrl')->willReturn('http://habibhadi.com/');
+        // Covers 5.3 hygiene: avoids mocking protected getCurrentUrl();
+        // mocks only public Request contract (getRequestedUrl/getRequestMethod).
+        $request = $this->getMockBuilder(Request::class)->onlyMethods(['getRequestedUrl', 'getRequestMethod'])->getMock();
+        $request->method('getRequestedUrl')->willReturn('/');
+        $request->method('getRequestMethod')->willReturn(HttpMethod::GET);
 
         $router = $this->getMockBuilder(RouterForTest::class)->setConstructorArgs([[], null, $request])->onlyMethods(['executeRouteMethod'])->getMock();
         $router->expects($this->once())->method('executeRouteMethod')->with(null);

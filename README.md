@@ -1,6 +1,8 @@
 ## Roolith router
 A simple router class
 
+Note: `Response::errorResponse()` without an explicit status now defaults to 500 (was 403); pass 403/404 explicitly where needed.
+
 ### Install
 ```
 composer require roolith/router

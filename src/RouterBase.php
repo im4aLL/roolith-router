@@ -69,7 +69,7 @@ abstract class RouterBase
      * @param $url
      * @return $this
      */
-    public function setBaseUrl($url): static
+    public function setBaseUrl(string $url): static
     {
         $this->request->setBaseUrl($url);
 
@@ -82,7 +82,7 @@ abstract class RouterBase
      * @param $dir
      * @return $this
      */
-    public function setViewDir($dir): static
+    public function setViewDir(string $dir): static
     {
         $this->viewDir = $dir;
 
@@ -122,7 +122,7 @@ abstract class RouterBase
      * @param $groupSettings
      * @return $this
      */
-    public function setGroupSettings($groupSettings): static
+    public function setGroupSettings(array $groupSettings): static
     {
         $this->groupSettings = $groupSettings;
 
@@ -152,7 +152,7 @@ abstract class RouterBase
      * @param $router
      * @return $this
      */
-    protected function executeRouteMethod($router): static
+    protected function executeRouteMethod(mixed $router): static
     {
         if (!$router) {
             $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::NOT_FOUND, "Route doesn't exists"), HttpResponseCode::NOT_FOUND);
@@ -234,7 +234,7 @@ abstract class RouterBase
      * @param $router
      * @return void
      */
-    private function executeRouteMethodClassDI(string $className, string $classMethodName, $router): void
+    private function executeRouteMethodClassDI(string $className, string $classMethodName, mixed $router): void
     {
         try {
             $classDI = $this->container->get($className);
@@ -267,7 +267,7 @@ abstract class RouterBase
      * @param $router
      * @return void
      */
-    private function executeRouteMethodClassLegacy(string $className, string $classMethodName, $router): void
+    private function executeRouteMethodClassLegacy(string $className, string $classMethodName, mixed $router): void
     {
         try {
             $instance = new $className();
@@ -289,7 +289,7 @@ abstract class RouterBase
      * @param $method
      * @return mixed|null
      */
-    protected function getRequestedRouter($path, $method): mixed
+    protected function getRequestedRouter(string $path, string $method): mixed
     {
         $selectedRoute = null;
 
@@ -320,7 +320,7 @@ abstract class RouterBase
      * @param $url
      * @return array|bool
      */
-    protected function matchPattern($routerPath, $url): bool|array
+    protected function matchPattern(string $routerPath, string $url): bool|array
     {
         $result = false;
 
@@ -332,7 +332,7 @@ abstract class RouterBase
             return false;
         }
 
-        $routerPattern = implode('\/', array_map(function ($segment) {
+        $routerPattern = implode('\/', array_map(function (string $segment): string {
             $parts = preg_split('/({[^}]*})/', $segment, -1, PREG_SPLIT_DELIM_CAPTURE);
             $built = '';
 
@@ -381,7 +381,7 @@ abstract class RouterBase
      * @param $route
      * @return $this
      */
-    protected function addToRouterArray($route): static
+    protected function addToRouterArray(array $route): static
     {
         $this->routerArray[] = $route;
 
@@ -421,7 +421,7 @@ abstract class RouterBase
      * @param $settings array
      * @return string
      */
-    public function getUrlByName($string, array $settings = []): string
+    public function getUrlByName(string $string, array $settings = []): string
     {
         $url = '';
 
@@ -469,7 +469,7 @@ abstract class RouterBase
      * @param string $message
      * @return string
      */
-    public function getViewHtmlByStatusCode($statusCode, string $message = ''): string
+    public function getViewHtmlByStatusCode(int|string $statusCode, string $message = ''): string
     {
         if (!$this->viewDir) {
             return $message;
@@ -477,7 +477,7 @@ abstract class RouterBase
 
         $filePath = $this->viewDir . '/' . $statusCode . '.php';
         if (file_exists($filePath)) {
-            $renderView = static function ($statusCode, string $message): void {
+            $renderView = static function (int|string $statusCode, string $message): void {
                 include func_get_arg(2);
             };
             ob_start();

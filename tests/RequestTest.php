@@ -11,12 +11,12 @@ class RequestForTest extends Request
         return parent::getCurrentUrl();
     }
 
-    public function cleanUrlString($string): array|string|null
+    public function cleanUrlString(string|array $string): array|string|null
     {
         return parent::cleanUrlString($string);
     }
 
-    public function cleanUrlStringArray($string): array|string|null
+    public function cleanUrlStringArray(string $string): array|string|null
     {
         return parent::cleanUrlStringArray($string);
     }
@@ -26,7 +26,7 @@ class RequestForTest extends Request
         return parent::isSecure();
     }
 
-    public function cleanQueryValue($string): array|string|null
+    public function cleanQueryValue(mixed $string): array|string|null
     {
         return parent::cleanQueryValue($string);
     }
@@ -64,11 +64,25 @@ class RequestTest extends TestCase
 
     public function testShouldGetRequestedMethod()
     {
-        $this->assertEquals(HttpMethod::GET, $this->request->getRequestMethod());
+        // Covers 5.3 hygiene: isolates $_SERVER mutation and avoids
+        // re-calling __construct() on a mock; uses fresh instances.
+        $previous = $_SERVER['REQUEST_METHOD'] ?? null;
 
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $this->request->__construct();
-        $this->assertEquals(HttpMethod::POST, $this->request->getRequestMethod());
+        try {
+            unset($_SERVER['REQUEST_METHOD']);
+            $defaultRequest = new Request();
+            $this->assertEquals(HttpMethod::GET, $defaultRequest->getRequestMethod());
+
+            $_SERVER['REQUEST_METHOD'] = 'POST';
+            $postRequest = new Request();
+            $this->assertEquals(HttpMethod::POST, $postRequest->getRequestMethod());
+        } finally {
+            if ($previous === null) {
+                unset($_SERVER['REQUEST_METHOD']);
+            } else {
+                $_SERVER['REQUEST_METHOD'] = $previous;
+            }
+        }
     }
 
     public function testShouldNormalizeLowercaseRequestMethod()
@@ -219,6 +233,8 @@ class RequestTest extends TestCase
 
     public function testShouldFilterQueryValuesPerContext()
     {
+        $hadPrevious = array_key_exists('q', $_GET);
+        $previous = $hadPrevious ? $_GET['q'] : null;
         $_GET['q'] = 'hello world';
 
         try {
@@ -227,7 +243,11 @@ class RequestTest extends TestCase
             $this->assertSame('hello world', $request->getUrlParam('q'));
             $this->assertNull($request->getUrlParam('missing'));
         } finally {
-            unset($_GET['q']);
+            if ($hadPrevious) {
+                $_GET['q'] = $previous;
+            } else {
+                unset($_GET['q']);
+            }
         }
     }
 

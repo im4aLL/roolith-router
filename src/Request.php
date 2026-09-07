@@ -43,7 +43,7 @@ class Request
      * @param $url
      * @return $this
      */
-    public function setBaseUrl($url): static
+    public function setBaseUrl(string $url): static
     {
         $this->baseUrl = $url;
 
@@ -167,7 +167,7 @@ class Request
      * @param $string
      * @return string|string[]|null
      */
-    protected function cleanUrlString($string): array|string|null
+    protected function cleanUrlString(string|array $string): array|string|null
     {
         return preg_replace("/[^a-zA-Z0-9\\-._~%+:,@\\p{L}\\p{N}]+/u", "", $string);
     }
@@ -181,7 +181,7 @@ class Request
      * @param $string
      * @return string|string[]|null
      */
-    protected function cleanUrlStringArray($string): array|string|null
+    protected function cleanUrlStringArray(string $string): array|string|null
     {
         $queryPos = strpos($string, '?');
 
@@ -205,7 +205,7 @@ class Request
      * @param $paramValueArray
      * @return Request
      */
-    public function setRequestedParam($paramArray, $paramValueArray): static
+    public function setRequestedParam(array $paramArray, array $paramValueArray): static
     {
         $size = count($paramArray);
 
@@ -223,7 +223,7 @@ class Request
      * @param $paramKey
      * @return bool|mixed
      */
-    public function getParam($paramKey): mixed
+    public function getParam(string $paramKey): mixed
     {
         if (isset($this->requestedParam[$paramKey])) {
             return $this->requestedParam[$paramKey];
@@ -241,7 +241,7 @@ class Request
      * @param $paramKey
      * @return string|string[]|null
      */
-    public function getUrlParam($paramKey): array|string|null
+    public function getUrlParam(string $paramKey): array|string|null
     {
         return isset($_GET[$paramKey]) ? $this->cleanQueryValue($_GET[$paramKey]) : null;
     }
@@ -252,7 +252,7 @@ class Request
      * @param $string
      * @return string|string[]|null
      */
-    protected function cleanQueryValue($string): array|string|null
+    protected function cleanQueryValue(mixed $string): array|string|null
     {
         if (!is_string($string)) {
             return $string;
