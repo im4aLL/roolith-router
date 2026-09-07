@@ -2,8 +2,6 @@
 namespace Roolith\Route;
 
 use DI\Container;
-use DI\DependencyException;
-use DI\NotFoundException;
 use Roolith\Route\HttpConstants\HttpResponseCode;
 use Roolith\Route\Traits\UrlJoinTrait;
 
@@ -146,6 +144,11 @@ abstract class RouterBase
     /**
      * Execute router callback method
      *
+     * Redirect dispatch is no-exit by design: the Location header is sent
+     * (CRLF-sanitized, skipped when headers were already sent per chunk 3)
+     * and execution continues, so callers needing termination must handle
+     * it themselves. Kept as `return $this` for backward compatibility.
+     *
      * @param $router
      * @return $this
      */
@@ -166,9 +169,21 @@ abstract class RouterBase
             $content = isset($router['payload']) ? call_user_func_array($router['execute'], $router['payload']) : call_user_func($router['execute']);
             $this->response->body($content);
         } elseif (isset($router['execute']) && is_string($router['execute'])) {
-            $classMethodArray = explode('@', $router['execute']);
-            $className = $classMethodArray[0];
-            $classMethodName = $classMethodArray[1];
+            $controllerReference = $router['execute'];
+
+            if (!str_contains($controllerReference, '@')) {
+                $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::INTERNAL_SERVER_ERROR, "Invalid controller reference '$controllerReference' (expected 'Class@method')"), HttpResponseCode::INTERNAL_SERVER_ERROR);
+
+                return $this;
+            }
+
+            [$className, $classMethodName] = explode('@', $controllerReference, 2);
+
+            if (!class_exists($className)) {
+                $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::NOT_FOUND, "Class $className doesn't exist"), HttpResponseCode::NOT_FOUND);
+
+                return $this;
+            }
 
             if (!method_exists($className, $classMethodName)) {
                 $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::NOT_FOUND, "$classMethodName method doesn't exist in $className"), HttpResponseCode::NOT_FOUND);
@@ -181,13 +196,38 @@ abstract class RouterBase
             } else {
                 $this->executeRouteMethodClassLegacy($className, $classMethodName, $router);
             }
+        } else {
+            // Residual type (array, int, null, or missing key): neither
+            // callable nor 'Class@method' string. Emit one generic 500
+            // instead of silently returning 200 with no body.
+            $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::INTERNAL_SERVER_ERROR, 'Invalid route handler'), HttpResponseCode::INTERNAL_SERVER_ERROR);
         }
 
         return $this;
     }
 
     /**
+     * Sanitize exception text for a single error_log line.
+     *
+     * Strips CR/LF to block log forging and truncates to ~500 chars to
+     * avoid leaking long paths while keeping enough context to debug.
+     *
+     * @param string $detail
+     * @return string
+     */
+    protected function sanitizeLogDetail(string $detail): string
+    {
+        $safe = str_replace(["\r", "\n"], ' ', $detail);
+
+        return mb_substr($safe, 0, 500);
+    }
+
+    /**
      * Invoke class method with dependency injection
+     *
+     * Each failure path emits exactly one response and returns: the raw
+     * exception message is logged (not echoed) and the client gets a
+     * generic 500 body per the chunk 1 status contract.
      *
      * @param $className string
      * @param $classMethodName string
@@ -198,12 +238,15 @@ abstract class RouterBase
     {
         try {
             $classDI = $this->container->get($className);
-        } catch (DependencyException|NotFoundException $e) {
-            $this->response->errorResponse($e->getMessage(), HttpResponseCode::INTERNAL_SERVER_ERROR);
+        } catch (\Throwable $e) {
+            error_log('[Roolith Router] Dependency injection failed for ' . $className . '@' . $classMethodName . ': ' . $this->sanitizeLogDetail($e->getMessage()));
+            $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::INTERNAL_SERVER_ERROR, 'Dependency Injection Error On ' . $className . ' ' . $classMethodName), HttpResponseCode::INTERNAL_SERVER_ERROR);
+
+            return;
         }
 
         if (!isset($classDI)) {
-            $this->response->errorResponse('Dependency Injection Error On '.$className. ' ' . $classMethodName, HttpResponseCode::INTERNAL_SERVER_ERROR);
+            $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::INTERNAL_SERVER_ERROR, 'Dependency Injection Error On ' . $className . ' ' . $classMethodName), HttpResponseCode::INTERNAL_SERVER_ERROR);
 
             return;
         }
@@ -215,6 +258,10 @@ abstract class RouterBase
     /**
      * Invoke class method in tradition way
      *
+     * Plain instantiation fatals on constructor dependencies, so it is
+     * wrapped: an uninstantiable class emits a single 500 response and
+     * returns instead of bubbling an Error.
+     *
      * @param $className string
      * @param $classMethodName string
      * @param $router
@@ -222,7 +269,16 @@ abstract class RouterBase
      */
     private function executeRouteMethodClassLegacy(string $className, string $classMethodName, $router): void
     {
-        $content = isset($router['payload']) ? call_user_func_array([new $className, $classMethodName], $router['payload']) : call_user_func([new $className, $classMethodName]);
+        try {
+            $instance = new $className();
+        } catch (\Throwable $e) {
+            error_log('[Roolith Router] Legacy controller instantiation failed for ' . $className . '@' . $classMethodName . ': ' . $this->sanitizeLogDetail($e->getMessage()));
+            $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::INTERNAL_SERVER_ERROR, 'Controller Error On ' . $className . ' ' . $classMethodName), HttpResponseCode::INTERNAL_SERVER_ERROR);
+
+            return;
+        }
+
+        $content = isset($router['payload']) ? call_user_func_array([$instance, $classMethodName], $router['payload']) : call_user_func([$instance, $classMethodName]);
         $this->response->body($content);
     }
 
@@ -399,6 +455,16 @@ abstract class RouterBase
     /**
      * Get view html by status code
      *
+     * View contract: the included file runs in an isolated static closure
+     * scope with exactly two variables available - $statusCode (the looked
+     * up code) and $message (the fallback text, returned as-is when no
+     * view file exists). The view file path is passed as an extra
+     * argument and read via func_get_arg() so no $filePath variable
+     * leaks into view scope. $this is unbound (static closure). Only
+     * `<code>.php` files under the configured view dir are ever
+     * included; anything else falls back to $message. Output buffering
+     * is always released via try/finally.
+     *
      * @param $statusCode
      * @param string $message
      * @return string
@@ -411,11 +477,17 @@ abstract class RouterBase
 
         $filePath = $this->viewDir . '/' . $statusCode . '.php';
         if (file_exists($filePath)) {
+            $renderView = static function ($statusCode, string $message): void {
+                include func_get_arg(2);
+            };
             ob_start();
-            include $filePath;
-            $output = ob_get_contents();
-            ob_end_clean();
-            return $output;
+            try {
+                $renderView($statusCode, $message, $filePath);
+            } finally {
+                $output = ob_get_clean();
+            }
+
+            return is_string($output) ? $output : $message;
         }
 
         return $message;

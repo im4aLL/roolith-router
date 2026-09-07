@@ -6,6 +6,11 @@ trait EncoderTrait
     /**
      * Convert an array or object or string to UTF8
      *
+     * Non-UTF-8 strings are assumed ISO-8859-1 (matching the legacy
+     * utf8_encode behavior) and converted with mb_convert_encoding, since
+     * utf8_encode is deprecated since PHP 8.2. Only public object
+     * properties are traversed; non-string scalars pass through as-is.
+     *
      * @param $var
      * @param bool $deep
      * @return mixed
@@ -16,8 +21,8 @@ trait EncoderTrait
             foreach($var as $key => $value){
                 if($deep) {
                     $var[$key] = $this->anythingToUtf8($value, $deep);
-                } elseif(!is_array($value) && !is_object($value) && !mb_detect_encoding($value, 'utf-8', true)) {
-                    $var[$key] = utf8_encode(strval($var));
+                } elseif(is_string($value) && !mb_detect_encoding($value, 'utf-8', true)) {
+                    $var[$key] = mb_convert_encoding($value, 'UTF-8', 'ISO-8859-1');
                 }
             }
             return $var;
@@ -25,13 +30,17 @@ trait EncoderTrait
             foreach($var as $key => $value){
                 if($deep) {
                     $var->$key = $this->anythingToUtf8($value,$deep);
-                } elseif(!is_array($value) && !is_object($value) && !mb_detect_encoding($value,'utf-8',true)) {
-                    $var->$key = utf8_encode($var);
+                } elseif(is_string($value) && !mb_detect_encoding($value,'utf-8',true)) {
+                    $var->$key = mb_convert_encoding($value, 'UTF-8', 'ISO-8859-1');
                 }
             }
             return $var;
         } else {
-            return (!mb_detect_encoding($var,'utf-8',true)) ? utf8_encode($var) : $var;
+            if (!is_string($var)) {
+                return $var;
+            }
+
+            return mb_detect_encoding($var,'utf-8',true) ? $var : mb_convert_encoding($var, 'UTF-8', 'ISO-8859-1');
         }
     }
 }

@@ -315,12 +315,34 @@ class Router extends RouterBase implements RouterInterface
     /**
      * Match the requested URL with a route list and execute it's callable method
      *
+     * Middleware entries are validated (existing class extending Middleware)
+     * and resolved via the DI container with a plain-instantiation fallback;
+     * an unresolvable entry emits a single 500 response. A blocked request
+     * emits a single response whose body is built for the middleware's own
+     * status code. Unknown verbs (HEAD/TRACE/custom) never match a route,
+     * so they fall through to the 405/404 handling below.
+     *
      * @return $this
      */
     public function run(): static
     {
-        $methodName = $this->request->getRequestMethod();
-        $router = $this->getRequestedRouter($this->request->getRequestedUrl(), $methodName);
+        $methodName = strtoupper((string) $this->request->getRequestMethod());
+        $requestedUrl = $this->request->getRequestedUrl();
+        $router = $this->getRequestedRouter($requestedUrl, $methodName);
+
+        if (!$router) {
+            $allowedMethods = $this->allowedMethodsForPath($requestedUrl);
+
+            if (count($allowedMethods) > 0) {
+                $this->respondMethodNotAllowed($allowedMethods);
+
+                return $this;
+            }
+
+            $this->executeRouteMethod($router);
+
+            return $this;
+        }
 
         if (isset($router['middleware'])) {
             if (!is_array($router['middleware'])) {
@@ -328,12 +350,30 @@ class Router extends RouterBase implements RouterInterface
             }
 
             foreach ($router['middleware'] as $middleware) {
-                /* @var Middleware $middlewareInstance */
-                $middlewareInstance = new $middleware();
-                $isProcessNext = $middlewareInstance->process($this->request, $this->response);
+                $middlewareInstance = $this->resolveMiddleware($middleware);
+
+                if (!$middlewareInstance instanceof Middleware) {
+                    $middlewareName = is_string($middleware) ? $middleware : get_debug_type($middleware);
+                    $html = $this->getViewHtmlByStatusCode(HttpResponseCode::INTERNAL_SERVER_ERROR, "Middleware $middlewareName doesn't exist or is invalid");
+                    $this->response->errorResponse($html, HttpResponseCode::INTERNAL_SERVER_ERROR);
+
+                    return $this;
+                }
+
+                $isProcessNext = null;
+
+                try {
+                    $isProcessNext = $middlewareInstance->process($this->request, $this->response);
+                } catch (\Throwable $e) {
+                    error_log('[Roolith Router] Middleware failed for ' . get_class($middlewareInstance) . ': ' . $this->sanitizeLogDetail($e->getMessage()));
+                    $html = $this->getViewHtmlByStatusCode(HttpResponseCode::INTERNAL_SERVER_ERROR, 'Middleware Error');
+                    $this->response->errorResponse($html, HttpResponseCode::INTERNAL_SERVER_ERROR);
+
+                    return $this;
+                }
 
                 if (!$isProcessNext) {
-                    $html = $this->getViewHtmlByStatusCode(HttpResponseCode::BAD_REQUEST, "Invalid request");
+                    $html = $this->getViewHtmlByStatusCode($middlewareInstance->status_code, "Invalid request");
                     $this->response->errorResponse($html, $middlewareInstance->status_code);
 
                     return $this;
@@ -341,18 +381,163 @@ class Router extends RouterBase implements RouterInterface
             }
         }
 
-        switch ($methodName) {
-            case HttpMethod::GET:
-            case HttpMethod::POST:
-            case HttpMethod::PUT:
-            case HttpMethod::PATCH:
-            case HttpMethod::DELETE:
-            case HttpMethod::OPTIONS:
-                $this->executeRouteMethod($router);
-                break;
-        }
+        $this->executeRouteMethod($router);
 
         return $this;
+    }
+
+    /**
+     * Resolve a route middleware entry to an instance.
+     *
+     * String entries must name an existing Middleware subclass and are
+     * resolved via the DI container so constructor dependencies can be
+     * injected; a container failure falls back to plain instantiation.
+     * Already-instantiated Middleware entries pass through. Returns null
+     * when the entry is invalid or cannot be instantiated.
+     *
+     * @param $middleware
+     * @return Middleware|null
+     */
+    private function resolveMiddleware($middleware): ?Middleware
+    {
+        if ($middleware instanceof Middleware) {
+            return $middleware;
+        }
+
+        if (!is_string($middleware) || !class_exists($middleware) || !is_subclass_of($middleware, Middleware::class)) {
+            return null;
+        }
+
+        try {
+            $instance = $this->container->get($middleware);
+        } catch (\Throwable) {
+            $instance = null;
+        }
+
+        if (!$instance instanceof Middleware) {
+            try {
+                $instance = new $middleware();
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        return $instance instanceof Middleware ? $instance : null;
+    }
+
+    /**
+     * Methods registered for a path across all known verbs.
+     *
+     * Side-effect-free by design: probes via a pure pattern check instead
+     * of getRequestedRouter(), which would populate request params through
+     * matchPattern()->setRequestedParam() as a side effect.
+     *
+     * @param string $path
+     * @return array
+     */
+    private function allowedMethodsForPath(string $path): array
+    {
+        $allowedMethods = [];
+
+        foreach (HttpMethod::all() as $methodName) {
+            if ($this->hasRouteForMethodPath($methodName, $path)) {
+                $allowedMethods[] = $methodName;
+            }
+        }
+
+        return $allowedMethods;
+    }
+
+    /**
+     * Check for a route matching method + path without touching request state.
+     *
+     * Mirrors RouterBase::getRequestedRouter()/matchPattern() matching
+     * (exact match or {placeholder} pattern) but never calls
+     * setRequestedParam(), so 405 probing leaves getParam() unchanged.
+     *
+     * @param string $methodName
+     * @param string $path
+     * @return bool
+     */
+    private function hasRouteForMethodPath(string $methodName, string $path): bool
+    {
+        foreach ($this->getRouteList() as $route) {
+            if (($route['method'] ?? null) !== $methodName) {
+                continue;
+            }
+
+            $routePath = $route['path'] ?? null;
+
+            if ($routePath === $path) {
+                return true;
+            }
+
+            if (is_string($routePath) && str_contains($routePath, '{') && $this->pathMatchesPattern($routePath, $path)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Pure pattern check mirroring RouterBase::matchPattern() without side effects.
+     *
+     * @param string $routerPath
+     * @param string $url
+     * @return bool
+     */
+    private function pathMatchesPattern(string $routerPath, string $url): bool
+    {
+        $pattern = "/{[^}]*}/";
+        preg_match_all($pattern, $routerPath, $matches);
+
+        if (count($matches[0]) === 0) {
+            return false;
+        }
+
+        $routerPattern = implode('\/', array_map(function ($segment) {
+            $parts = preg_split('/({[^}]*})/', $segment, -1, PREG_SPLIT_DELIM_CAPTURE);
+            $built = '';
+
+            foreach ($parts as $part) {
+                if (preg_match('/^{[^}]*}$/', $part)) {
+                    $built .= '[^\/]+';
+                } else {
+                    $built .= preg_quote($part, '/');
+                }
+            }
+
+            return $built;
+        }, explode('/', $routerPath)));
+
+        if (!preg_match("/^$routerPattern$/s", $url)) {
+            return false;
+        }
+
+        return count(explode('/', $url)) === count(explode('/', $routerPath));
+    }
+
+    /**
+     * Emit a single 405 response with an Allow header.
+     *
+     * The Allow header send is skipped when headers were already sent
+     * (CLI output, prior echo), consistent with the chunk 3 header-safety
+     * rule; the allowed methods are always repeated in the body so the
+     * contract stays verifiable without a SAPI.
+     *
+     * @param array $allowedMethods
+     * @return void
+     */
+    private function respondMethodNotAllowed(array $allowedMethods): void
+    {
+        if (!headers_sent()) {
+            header('Allow: ' . implode(', ', $allowedMethods));
+        }
+
+        $message = 'Method Not Allowed. Allowed: ' . implode(', ', $allowedMethods);
+        $html = $this->getViewHtmlByStatusCode(HttpResponseCode::METHOD_NOT_ALLOWED, $message);
+        $this->response->errorResponse($html, HttpResponseCode::METHOD_NOT_ALLOWED);
     }
 
     /**
@@ -362,7 +547,7 @@ class Router extends RouterBase implements RouterInterface
      */
     public function activeRoute(): array
     {
-        $methodName = $this->request->getRequestMethod();
+        $methodName = strtoupper((string) $this->request->getRequestMethod());
 
         return $this->getRequestedRouter($this->request->getRequestedUrl(), $methodName);
     }
