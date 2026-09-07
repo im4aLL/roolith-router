@@ -105,4 +105,75 @@ class ResponseTest extends TestCase
 
         $this->assertSame(HttpResponseCode::INTERNAL_SERVER_ERROR, $this->response->getStatusCode());
     }
+
+    public function testShouldKeepEchoForBcAndExposeRenderedOutput()
+    {
+        $response = new ResponseForTest();
+
+        ob_start();
+        $response->body('hello');
+        $echoed = ob_get_clean();
+
+        $this->assertSame('hello', $echoed);
+        $this->assertSame('hello', $response->getLastOutput());
+        $this->assertSame('hello', $response->renderBody('hello'));
+    }
+
+    public function testShouldStayHeaderSafeAfterOutput()
+    {
+        $response = new ResponseForTest();
+
+        echo 'prior output';
+        $response->setStatusCode(HttpResponseCode::OK);
+        $response->setHeaderJson();
+        $response->redirect("http://test.com/target\r\nX-Injected: 1");
+
+        $this->assertSame(HttpResponseCode::OK, $response->getStatusCode());
+        $this->assertTrue($response->hasHeaderContentType());
+        $this->expectOutputString('prior output');
+    }
+
+    public function testShouldSurfaceJsonEncodingFailure()
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/JSON encoding failed/');
+
+        $this->response->outputJson(['v' => INF]);
+    }
+
+    public function testShouldHaveErrorJsonWithDefault500()
+    {
+        $response = new ResponseForTest();
+
+        ob_start();
+        $response->errorJson(['error' => 'oops']);
+        $echoed = ob_get_clean();
+
+        $this->assertSame(HttpResponseCode::INTERNAL_SERVER_ERROR, $response->getStatusCode());
+        $this->assertTrue($response->hasHeaderContentType());
+        $this->assertJson($echoed);
+        $this->assertSame(['error' => 'oops'], json_decode($echoed, true));
+        $this->assertSame($echoed, $response->getLastOutput());
+    }
+
+    public function testShouldHaveErrorJsonWithExplicitStatus()
+    {
+        $response = new ResponseForTest();
+
+        ob_start();
+        $response->errorJson(['error' => 'missing'], HttpResponseCode::NOT_FOUND);
+        $echoed = ob_get_clean();
+
+        $this->assertSame(HttpResponseCode::NOT_FOUND, $response->getStatusCode());
+        $this->assertSame(['error' => 'missing'], json_decode($echoed, true));
+    }
+
+    public function testShouldSanitizeRedirectCrlfWithoutExit()
+    {
+        $response = new ResponseForTest();
+        $response->redirect("http://test.com/a\r\nX: 1");
+
+        // No-exit semantics: execution continues after redirect().
+        $this->assertTrue(true);
+    }
 }

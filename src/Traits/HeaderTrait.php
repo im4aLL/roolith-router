@@ -8,7 +8,9 @@ trait HeaderTrait
      */
     public function makeJsonHeader(): void
     {
-        header('Content-Type: application/json; charset=UTF-8');
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=UTF-8');
+        }
     }
 
     /**
@@ -16,7 +18,9 @@ trait HeaderTrait
      */
     public function makeHtmlHeader(): void
     {
-        header('Content-Type: text/html; charset=UTF-8');
+        if (!headers_sent()) {
+            header('Content-Type: text/html; charset=UTF-8');
+        }
     }
 
     /**
@@ -24,16 +28,28 @@ trait HeaderTrait
      */
     public function makePlainTextHeader(): void
     {
-        header('Content-Type: text/plain; charset=UTF-8');
+        if (!headers_sent()) {
+            header('Content-Type: text/plain; charset=UTF-8');
+        }
     }
 
     /**
      * Redirect to URL
      *
+     * Strips CR/LF characters from $url to block header injection via a
+     * crafted redirect target. Does NOT exit: execution continues after
+     * sending the Location header, so callers needing termination must
+     * handle it (long-running contexts). Skipped when headers already
+     * sent (CLI/tests) to stay warning-free.
+     *
      * @param $url
      */
     public function redirect($url): void
     {
-        header("Location: $url");
+        $safeUrl = str_replace(["\r", "\n"], '', (string) $url);
+
+        if (!headers_sent()) {
+            header("Location: $safeUrl");
+        }
     }
 }

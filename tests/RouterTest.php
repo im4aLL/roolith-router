@@ -406,7 +406,9 @@ class RouterTest extends TestCase
 
         $url = $this->router->getUrlByName('delete', ['id' => 1]);
 
-        $this->assertSame('delete/1', $url);
+        // Chunk 3 fix 3.9: joinUrl normalizes the separator, so an empty
+        // base yields an absolute path with a leading slash.
+        $this->assertSame('/delete/1', $url);
     }
 
     public function testShouldAddMiddlewareToRoute()
@@ -819,6 +821,82 @@ class RouterTest extends TestCase
 
         $this->assertCount(1, $routes);
         $this->assertEquals('/faq?help', $routes[0]['path']);
+    }
+
+    public function testShouldBuildIdenticalNamedUrlsForBareAndSlashedBase()
+    {
+        $first = new Router(['base_url' => 'http://test.com']);
+        $first->get('delete/{id}', function() {
+            return 'done';
+        })->name('delete');
+
+        $second = new Router(['base_url' => 'http://test.com/']);
+        $second->get('delete/{id}', function() {
+            return 'done';
+        })->name('delete');
+
+        $firstUrl = $first->getUrlByName('delete', ['id' => 1]);
+        $secondUrl = $second->getUrlByName('delete', ['id' => 1]);
+
+        $this->assertSame($firstUrl, $secondUrl);
+        $this->assertSame('http://test.com/delete/1', $firstUrl);
+    }
+
+    public function testShouldReturnBaseUnchangedWhenNameNotFound()
+    {
+        $router = new Router(['base_url' => 'http://test.com']);
+        $router->get('/exists', function() {
+            return 'done';
+        })->name('exists');
+
+        $this->assertSame('http://test.com', $router->getUrlByName('missing'));
+    }
+
+    public function testShouldReturnEmptyBaseUnchangedWhenNameNotFound()
+    {
+        $this->router->get('/exists', function() {
+            return 'done';
+        })->name('exists');
+
+        $this->assertSame('', $this->router->getUrlByName('missing'));
+    }
+
+    public function testShouldUrlEncodePlaceholderValues()
+    {
+        $this->router->get('search/{q}', function() {
+            return 'done';
+        })->name('search');
+
+        $url = $this->router->getUrlByName('search', ['q' => 'a b/c']);
+
+        $this->assertSame('/search/a+b%2Fc', $url);
+    }
+
+    public function testShouldTolerateOptionalPlaceholderSyntax()
+    {
+        // Redirect sources keep literal '{x?}' (no optional expansion),
+        // so getUrlByName must treat {key?} as {key}.
+        $router = new Router();
+        $router->group(['namePrefix' => 'r.'], function ($router) {
+            $router->redirect('/a/{x?}', '/target');
+        });
+
+        $url = $router->getUrlByName('r.', ['x' => 'hadi']);
+
+        $this->assertSame('/a/hadi', $url);
+    }
+
+    public function testShouldQuoteRegexCharsInPlaceholderKeys()
+    {
+        $router = new RouterForTest();
+        $router->get('/a/{b.c}/d', function() {
+            return 'done';
+        })->name('dotted');
+
+        // Key with regex char must match literally, not as 'any char'.
+        $url = $router->getUrlByName('dotted', ['b.c' => '1']);
+
+        $this->assertSame('/a/1/d', $url);
     }
 
 }

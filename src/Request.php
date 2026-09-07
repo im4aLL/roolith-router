@@ -2,9 +2,11 @@
 namespace Roolith\Route;
 
 use Roolith\Route\HttpConstants\HttpMethod;
+use Roolith\Route\Traits\UrlJoinTrait;
 
 class Request
 {
+    use UrlJoinTrait;
     /**
      * Base URL
      *
@@ -71,12 +73,29 @@ class Request
     /**
      * Get requested URL without base URL
      *
+     * Strips the configured base URL only when it is a leading prefix
+     * (trailing slashes normalized on both sides), so a base string
+     * reappearing later in the path or query does not corrupt routing.
+     *
      * @return string
      */
     public function getRequestedUrl(): string
     {
         $currentUrl = $this->getCurrentUrl();
-        $actualUrl = rtrim(str_replace($this->baseUrl, '', $currentUrl), '/');
+        $normalizedBase = rtrim($this->baseUrl, '/');
+
+        if ($normalizedBase !== '' && str_starts_with($currentUrl, $normalizedBase)) {
+            $actualUrl = substr($currentUrl, strlen($normalizedBase));
+        } else {
+            $actualUrl = $currentUrl;
+
+            if (str_contains($actualUrl, '://')) {
+                $parts = parse_url($actualUrl);
+                $actualUrl = ($parts['path'] ?? '/') . (isset($parts['query']) ? '?' . $parts['query'] : '');
+            }
+        }
+
+        $actualUrl = rtrim($actualUrl, '/');
         $actualUrl = ltrim($actualUrl, '/');
 
         $actualUrlArray = explode('/', $actualUrl);
@@ -93,9 +112,16 @@ class Request
      */
     protected function isSecure(): bool
     {
-        if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on') {
+        $https = $_SERVER['HTTPS'] ?? null;
+
+        if (isset($https) && ($https === 'on' || $https === '1' || $https === 1 || $https === true)) {
             return true;
-        } elseif (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https' || !empty($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] == 'on') {
+        }
+
+        $forwardedProto = $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? null;
+        $forwardedSsl = $_SERVER['HTTP_X_FORWARDED_SSL'] ?? null;
+
+        if ((!empty($forwardedProto) && $forwardedProto === 'https') || (!empty($forwardedSsl) && $forwardedSsl === 'on')) {
             return true;
         }
 
@@ -105,34 +131,68 @@ class Request
     /**
      * GET current full URL
      *
+     * Guards $_SERVER access for CLI/test environments without HTTP_HOST
+     * or REQUEST_URI. When the Host header is unavailable the configured
+     * base URL is preferred so getRequestedUrl() safely resolves to '/'.
+     *
      * @return string
      */
     protected function getCurrentUrl(): string
     {
-        return ($this->isSecure() ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+        $host = $_SERVER['HTTP_HOST'] ?? null;
+        $requestUri = $_SERVER['REQUEST_URI'] ?? null;
+
+        if ($host === null || $host === '' || $requestUri === null) {
+            if ($this->baseUrl !== '') {
+                return $this->baseUrl;
+            }
+
+            $host = ($host === null || $host === '') ? 'localhost' : $host;
+            $requestUri = $requestUri ?? '/';
+        }
+
+        return ($this->isSecure() ? "https" : "http") . "://" . $host . $requestUri;
     }
 
     /**
-     * Sanitize string
+     * Sanitize a URL path segment.
+     *
+     * Allows RFC 3986 pchar subset (unreserved plus pct-encoded, ':' and
+     * '@') widened with unicode letters/numbers so slugs, filenames with
+     * dots, and decimals survive. Consistent with the chunk 2 matcher
+     * class [^/]+: everything the matcher accepts in a segment stays
+     * intact here except '?'/'#' delimiters and control characters, which
+     * are handled per-context in cleanUrlStringArray().
      *
      * @param $string
      * @return string|string[]|null
      */
     protected function cleanUrlString($string): array|string|null
     {
-        return preg_replace("/[^a-zA-Z0-9-._]+/", "", $string);
+        return preg_replace("/[^a-zA-Z0-9\\-._~%+:,@\\p{L}\\p{N}]+/u", "", $string);
     }
 
     /**
      * Sanitize string for array walk
+     *
+     * Strips query ('?...') and fragment ('#...') suffixes before applying
+     * the path-segment filter.
      *
      * @param $string
      * @return string|string[]|null
      */
     protected function cleanUrlStringArray($string): array|string|null
     {
-        if(str_contains($string, '?')) {
-            $string = substr($string, 0, strpos($string, '?'));
+        $queryPos = strpos($string, '?');
+
+        if ($queryPos !== false) {
+            $string = substr($string, 0, $queryPos);
+        }
+
+        $fragmentPos = strpos($string, '#');
+
+        if ($fragmentPos !== false) {
+            $string = substr($string, 0, $fragmentPos);
         }
 
         return $this->cleanUrlString($string);
@@ -175,11 +235,29 @@ class Request
     /**
      * Get URL param by key
      *
+     * Uses a per-context query-value filter: same base set as path
+     * segments plus spaces (decoded query values commonly contain them).
+     *
      * @param $paramKey
      * @return string|string[]|null
      */
     public function getUrlParam($paramKey): array|string|null
     {
-        return isset($_GET[$paramKey]) ? $this->cleanUrlString($_GET[$paramKey]) : null;
+        return isset($_GET[$paramKey]) ? $this->cleanQueryValue($_GET[$paramKey]) : null;
+    }
+
+    /**
+     * Sanitize a query-string value (per-context, wider than path filter).
+     *
+     * @param $string
+     * @return string|string[]|null
+     */
+    protected function cleanQueryValue($string): array|string|null
+    {
+        if (!is_string($string)) {
+            return $string;
+        }
+
+        return preg_replace("/[^a-zA-Z0-9\\-._~%+:,@ \\p{L}\\p{N}]+/u", "", $string);
     }
 }

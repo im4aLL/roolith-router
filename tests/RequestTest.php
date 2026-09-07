@@ -20,6 +20,16 @@ class RequestForTest extends Request
     {
         return parent::cleanUrlStringArray($string);
     }
+
+    public function isSecure(): bool
+    {
+        return parent::isSecure();
+    }
+
+    public function cleanQueryValue($string): array|string|null
+    {
+        return parent::cleanQueryValue($string);
+    }
 }
 
 class RequestTest extends TestCase
@@ -107,5 +117,150 @@ class RequestTest extends TestCase
         $nameParam = $this->request->getParam('name');
 
         $this->assertEquals('hadi', $nameParam);
+    }
+
+    public function testShouldBuildIdenticalRequestedUrlForBareAndTrailingSlashBase()
+    {
+        $makeRequest = function (string $base): string {
+            $request = $this->getMockBuilder(RequestForTest::class)->onlyMethods(['getCurrentUrl'])->getMock();
+            $request->method('getCurrentUrl')->willReturn('http://test.com/test/another/');
+            $request->setBaseUrl($base);
+
+            return $request->getRequestedUrl();
+        };
+
+        $this->assertSame('/test/another', $makeRequest('http://test.com'));
+        $this->assertSame($makeRequest('http://test.com'), $makeRequest('http://test.com/'));
+    }
+
+    public function testShouldStripBaseUrlOnlyAsLeadingPrefix()
+    {
+        $request = $this->getMockBuilder(RequestForTest::class)->onlyMethods(['getCurrentUrl'])->getMock();
+        $request->method('getCurrentUrl')->willReturn('http://example.com/http://example.com/page');
+        $request->setBaseUrl('http://example.com');
+
+        // Only the leading prefix is stripped; the second occurrence stays
+        // (cleaned per-segment, ':' preserved per 3.3).
+        $this->assertSame('/http:/example.com/page', $request->getRequestedUrl());
+    }
+
+    public function testShouldResolveToRootWhenServerVarsAbsentAndBaseSet()
+    {
+        $host = $_SERVER['HTTP_HOST'] ?? null;
+        $uri = $_SERVER['REQUEST_URI'] ?? null;
+        $https = $_SERVER['HTTPS'] ?? null;
+        unset($_SERVER['HTTP_HOST'], $_SERVER['REQUEST_URI'], $_SERVER['HTTPS']);
+
+        try {
+            $request = new RequestForTest();
+            $request->setBaseUrl('http://test.com');
+
+            $this->assertSame('http://test.com', $request->getCurrentUrl());
+            $this->assertSame('/', $request->getRequestedUrl());
+        } finally {
+            if ($host !== null) {
+                $_SERVER['HTTP_HOST'] = $host;
+            }
+
+            if ($uri !== null) {
+                $_SERVER['REQUEST_URI'] = $uri;
+            }
+
+            if ($https !== null) {
+                $_SERVER['HTTPS'] = $https;
+            }
+        }
+    }
+
+    public function testShouldFallbackToLocalhostWhenServerVarsAbsentAndNoBase()
+    {
+        $host = $_SERVER['HTTP_HOST'] ?? null;
+        $uri = $_SERVER['REQUEST_URI'] ?? null;
+        unset($_SERVER['HTTP_HOST'], $_SERVER['REQUEST_URI']);
+
+        try {
+            $request = new RequestForTest();
+
+            $this->assertSame('http://localhost/', $request->getCurrentUrl());
+        } finally {
+            if ($host !== null) {
+                $_SERVER['HTTP_HOST'] = $host;
+            }
+
+            if ($uri !== null) {
+                $_SERVER['REQUEST_URI'] = $uri;
+            }
+        }
+    }
+
+    public function testShouldPreserveDottedAndSpecialCharsPerMatcher()
+    {
+        $this->assertSame('a.txt', $this->request->cleanUrlString('a.txt'));
+        $this->assertSame('v1.2', $this->request->cleanUrlString('v1.2'));
+        $this->assertSame('a%20b+c:d@e~f,g', $this->request->cleanUrlString('a%20b+c:d@e~f,g'));
+        $this->assertSame('café-2026', $this->request->cleanUrlString('café-2026'));
+        $this->assertSame('abc123', $this->request->cleanUrlString('abc123!'));
+    }
+
+    public function testShouldStripQueryAndFragmentPerSegment()
+    {
+        $this->assertSame('page', $this->request->cleanUrlStringArray('page?x=1'));
+        $this->assertSame('page', $this->request->cleanUrlStringArray('page#section'));
+    }
+
+    public function testShouldKeepUnicodeSlugEndToEnd()
+    {
+        $request = $this->getMockBuilder(RequestForTest::class)->onlyMethods(['getCurrentUrl'])->getMock();
+        $request->method('getCurrentUrl')->willReturn('http://test.com/post/café-2026');
+        $request->setBaseUrl('http://test.com');
+
+        $this->assertSame('/post/café-2026', $request->getRequestedUrl());
+    }
+
+    public function testShouldFilterQueryValuesPerContext()
+    {
+        $_GET['q'] = 'hello world';
+
+        try {
+            $request = new Request();
+
+            $this->assertSame('hello world', $request->getUrlParam('q'));
+            $this->assertNull($request->getUrlParam('missing'));
+        } finally {
+            unset($_GET['q']);
+        }
+    }
+
+    public function testShouldTreatHttpsOneAsSecure()
+    {
+        $previous = $_SERVER;
+        $_SERVER['HTTPS'] = '1';
+
+        try {
+            $this->assertTrue((new RequestForTest())->isSecure());
+        } finally {
+            $_SERVER = $previous;
+        }
+
+        $_SERVER['HTTPS'] = 'on';
+
+        try {
+            $this->assertTrue((new RequestForTest())->isSecure());
+        } finally {
+            $_SERVER = $previous;
+        }
+    }
+
+    public function testShouldTreatForwardedProtoAsSecure()
+    {
+        $previous = $_SERVER;
+        unset($_SERVER['HTTPS']);
+        $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https';
+
+        try {
+            $this->assertTrue((new RequestForTest())->isSecure());
+        } finally {
+            $_SERVER = $previous;
+        }
     }
 }

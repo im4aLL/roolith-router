@@ -24,6 +24,13 @@ class Response
     protected bool $hasHeaderContentType;
 
     /**
+     * Last rendered body output (test hook; echo behavior kept for BC).
+     *
+     * @var string|null
+     */
+    protected ?string $lastOutput = null;
+
+    /**
      * Response constructor.
      */
     public function __construct()
@@ -44,13 +51,20 @@ class Response
     /**
      * Set HTTP response status
      *
+     * The status is always stored; the SAPI call is skipped when headers
+     * were already sent (CLI output, prior echo) so tests and embedded
+     * usage do not warn.
+     *
      * @param int $code
      * @return $this
      */
     public function setStatusCode(int $code = HttpResponseCode::OK): static
     {
         $this->statusCode = $code;
-        http_response_code($code);
+
+        if (!headers_sent()) {
+            http_response_code($code);
+        }
 
         return $this;
     }
@@ -68,22 +82,50 @@ class Response
     /**
      * Show response body
      *
+     * Echo is kept for backward compatibility with the Roolith framework
+     * consumer. The rendered string is also stored and returned via
+     * renderBody()/getLastOutput() so embedding code and unit tests do
+     * not have to fight output buffering.
+     *
      * @param mixed $content
      * @return $this
      */
     public function body(mixed $content = ''): static
     {
-        if (!$this->getStatusCode()) {
-            $this->setStatusCode();
-        }
+        $output = $this->renderBody($content);
 
-        if (is_array($content) || is_object($content)) {
-            echo $this->setHeaderJson()->outputJson($content);
-        } else {
-            echo $this->setHeaderHtml()->outputHtml($content);
-        }
+        echo $output;
 
         return $this;
+    }
+
+    /**
+     * Render response body without echoing (test/embedding hook).
+     *
+     * @param mixed $content
+     * @return string
+     */
+    public function renderBody(mixed $content = ''): string
+    {
+        if (is_array($content) || is_object($content)) {
+            $output = $this->setHeaderJson()->outputJson($content);
+        } else {
+            $output = $this->setHeaderHtml()->outputHtml($content);
+        }
+
+        $this->lastOutput = is_string($output) ? $output : (string) $output;
+
+        return $this->lastOutput;
+    }
+
+    /**
+     * Last rendered body output, if any.
+     *
+     * @return string|null
+     */
+    public function getLastOutput(): ?string
+    {
+        return $this->lastOutput;
     }
 
     /**
@@ -134,12 +176,21 @@ class Response
     /**
      * Array or Object to JSON
      *
+     * Surfaces encoding failures instead of echoing an empty string:
+     * throws on json_encode() failure with the underlying error message.
+     *
      * @param $content
      * @return false|string
      */
     protected function outputJson($content): bool|string
     {
-        return json_encode($this->anythingToUtf8($content));
+        $json = json_encode($this->anythingToUtf8($content));
+
+        if ($json === false) {
+            throw new \RuntimeException('JSON encoding failed: ' . json_last_error_msg());
+        }
+
+        return $json;
     }
 
     /**
@@ -165,6 +216,28 @@ class Response
         $this->setStatusCode($statusCode)
             ->setHeaderHtml()
             ->body($message);
+
+        return $this;
+    }
+
+    /**
+     * JSON error response (errorResponse() stays HTML-only for BC).
+     *
+     * Mirrors the chunk 1 status contract: default 500, explicit 404/403
+     * at call sites. $data is JSON-encoded as-is so APIs get a JSON body.
+     *
+     * @param mixed $data
+     * @param int $statusCode
+     * @return $this
+     */
+    public function errorJson(mixed $data = 'Something went wrong', int $statusCode = HttpResponseCode::INTERNAL_SERVER_ERROR): static
+    {
+        $this->setStatusCode($statusCode)->setHeaderJson();
+
+        $output = $this->outputJson($data);
+        $this->lastOutput = is_string($output) ? $output : (string) $output;
+
+        echo $this->lastOutput;
 
         return $this;
     }

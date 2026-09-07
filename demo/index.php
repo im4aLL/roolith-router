@@ -23,116 +23,117 @@ $router = new Router([
  * Basic route examples
  */
 
-$router->get('/', \Demo\Controller::class . '@index');
+// $router->get('/', \Demo\Controller::class . '@index');
 $router->get('/{id}', \Demo\Controller::class . '@simpleIndex');
-// $router->get('/', \Demo\Controller::class . '@simpleIndex2');
+$router->get('/', \Demo\Controller::class . '@simpleIndex2');
 
-// $router->get('/', function() {
-//    return 'default. Server request method:'. $_SERVER['REQUEST_METHOD'];
-// });
+$router->get('/', function() {
+   return 'default. Server request method:'. $_SERVER['REQUEST_METHOD'];
+});
 
-// $router->get('test/{test}', function() {
-//    return 'Get test route content. Server request method: '. $_SERVER['REQUEST_METHOD'];
-// })->middleware(\Demo\AuthMiddleware::class);
+$router->get('test/{test}', function() {
+   return 'Get test route content. Server request method: '. $_SERVER['REQUEST_METHOD'];
+})->middleware(\Demo\AuthMiddleware::class);
 
-// $router->get(['about', 'contact'], function() {
-//    return ['name' => 'Test bangla char', 'age' => 45];
-// });
+$router->get(['about', 'contact'], function() {
+   return ['name' => 'Test bangla char', 'age' => 45];
+});
 
-// $router->get('/user/{userId}/edit/{another}', function($userId, $another) {
-//    return 'get content {userId}: '.$userId.' {another}: '.$another.'. Server request method: '. $_SERVER['REQUEST_METHOD'];
-// });
+$router->get('/user/{userId}/edit/{another}', function($userId, $another) {
+   return 'get content {userId}: '.$userId.' {another}: '.$another.'. Server request method: '. $_SERVER['REQUEST_METHOD'];
+});
 
-// $router->post('test', function() {
-//    return 'post content. Server request method:'. $_SERVER['REQUEST_METHOD'];
-// });
+$router->post('test', function() {
+   return 'post content. Server request method:'. $_SERVER['REQUEST_METHOD'];
+});
 
-// $router->put('test', function() {
-//    return 'put content. Server request method:'. $_SERVER['REQUEST_METHOD'];
-// });
+$router->put('test', function() {
+   return 'put content. Server request method:'. $_SERVER['REQUEST_METHOD'];
+});
 
-// $router->patch('test', function() {
-//    return 'patch content. Server request method:'. $_SERVER['REQUEST_METHOD'];
-// });
+$router->patch('test', function() {
+   return 'patch content. Server request method:'. $_SERVER['REQUEST_METHOD'];
+});
 
-// $router->delete('test', function() {
-//    return 'delete content. Server request method:'. $_SERVER['REQUEST_METHOD'];
-// });
+$router->delete('test', function() {
+   return 'delete content. Server request method:'. $_SERVER['REQUEST_METHOD'];
+});
 
-// $router->options('test', function() {
-//    return 'options content. Server request method:'. $_SERVER['REQUEST_METHOD'];
-// });
+$router->options('test', function() {
+   return 'options content. Server request method:'. $_SERVER['REQUEST_METHOD'];
+});
 
 
 /**
  * Named routes
  */
 
-// $router->get('controller', 'Demo\Controller@index')->name('controller.index');
+$router->get('controller', 'Demo\Controller@index')->name('controller.index');
 
-// $router->any('any', function() {
-//    return 'any content. Server request method:'. $_SERVER['REQUEST_METHOD'];
-// });
+$router->any('any', function() {
+   return 'any content. Server request method:'. $_SERVER['REQUEST_METHOD'];
+});
 
-// $router->crud('/crud', function () {
-//    return 'crud content. Server request method:'. $_SERVER['REQUEST_METHOD'];
-// });
+$router->crud('/crud', function () {
+   return 'crud content. Server request method:'. $_SERVER['REQUEST_METHOD'];
+});
 
-// $router->redirect('/redirect', '/redirected');
-// $router->get('/redirected', function (){
-//    return 'redirected!';
-// });
-// $router->redirect('/redirect-another', 'http://habibhadi.com');
+$router->redirect('/redirect', '/redirected');
+$router->get('/redirected', function (){
+   return 'redirected!';
+});
+$router->redirect('/redirect-another', 'http://habibhadi.com');
 
-// $router->get('name/{name?}', function($name = 'Default name') {
-//    return "Your name is - $name";
-// });
+$router->get('name/{name?}', function($name = 'Default name') {
+   return "Your name is - $name";
+});
 
-// $router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => 'user/{userId}', 'namePrefix' => 'user.'], function () use ($router) {
-//    $router->get('profile', function ($userId){
-//        return "profile route: User id: $userId";
-//    })->name('profile');
+$router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => 'user/{userId}', 'namePrefix' => 'user.'], function () use ($router) {
+   $router->get('profile', function ($userId){
+       return "profile route: User id: $userId";
+   })->name('profile');
 
-//    $router->get('action/{actionId}', function ($userId, $actionId){
-//        return "action route: User id: $userId and action id $actionId";
-//    })->name('action');
+   $router->get('action/{actionId}', function ($userId, $actionId){
+       return "action route: User id: $userId and action id $actionId";
+   })->name('action');
 
-//    $router->crud('/test', \Demo\Controller::class);
-// });
+   $router->crud('/test', \Demo\Controller::class);
+});
 
-// $router->crud('/test', \Demo\Controller::class);
-// $router->get('test/{param}/edit', \Demo\Controller::class.'@edit');
-// $router->get('test2/{param}/edit', function ($param) {
-//    return $param;
-// });
+$router->crud('/test', \Demo\Controller::class);
+$router->get('test/{param}/edit', \Demo\Controller::class.'@edit');
+$router->get('test2/{param}/edit', function ($param) {
+   return $param;
+});
 
-// $router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => '/user', 'namePrefix' => 'user.'], function () use ($router) {
-//   $router->get('/', function (){
-//       return "default user page";
-//   })->name('profile');
+$router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => '/user', 'namePrefix' => 'user.'], function () use ($router) {
+  $router->get('/', function (){
+      return "default user page";
+  })->name('profile');
 
-//   $router->get('action/{actionId}', function ($userId, $actionId){
-//       return "action route: User id: $userId and action id $actionId";
-//   })->name('action');
-// });
+  $router->get('action/{actionId}', function ($userId, $actionId){
+      return "action route: User id: $userId and action id $actionId";
+  })->name('action');
+});
 
-// $router->any('/another', 'Demo\Controller@user')->name('controller.user');
+$router->any('/another', 'Demo\Controller@user')->name('controller.user');
 
 
-// $router->get('/test-0', \Demo\Controller::class . '@index')->name('test');
-// $router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => 'user/{userId}', 'namePrefix' => 'user.'], function () use ($router) {
-//     // $router->match(['GET', 'POST'], '/test', \Demo\Controller::class.'@simpleIndex2')->name('test.simpleIndex2');
-//     // $router->match(['GET', 'POST'], '/test', \Demo\Controller::class.'@simpleIndex2', 'test.simpleIndex2');
-//     // $router->any('/test', \Demo\Controller::class.'@simpleIndex2');
+$router->get('/test-0', \Demo\Controller::class . '@index')->name('test');
+$router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => 'user/{userId}', 'namePrefix' => 'user.'], function () use ($router) {
+    $router->match(['GET', 'POST'], '/test', \Demo\Controller::class.'@simpleIndex2')->name('test.simpleIndex2');
+    $router->match(['GET', 'POST'], '/test', \Demo\Controller::class.'@simpleIndex2', 'test.simpleIndex2');
+    $router->any('/test', \Demo\Controller::class.'@simpleIndex2');
 
-//     // $router->get('/test-1', \Demo\Controller::class . '@index')->name('test');
-//     // $router->get('/test-2', \Demo\Controller::class . '@index')->middleware(\Demo\AnotherMiddleware::class)->middleware(\Demo\ThirdMiddleware::class)->name('test');
-//     // $router->get('/test-3', \Demo\Controller::class . '@index')->name('test');
-// });
+    $router->get('/test-1', \Demo\Controller::class . '@index')->name('test');
+    $router->get('/test-2', \Demo\Controller::class . '@index')->middleware(\Demo\AnotherMiddleware::class)->middleware(\Demo\ThirdMiddleware::class)->name('test');
+    $router->get('/test-3', \Demo\Controller::class . '@index')->name('test');
+});
 
 
 $router->run();
-dd($router->getRouteList());
+// dd($router->getRouteList());
+dd($router->formattedRouteList());
 
 // print_r($router->getUrlByName('controller.user', ['id' => 1]));
 //print_r($router->getUrlByName('user.test.simpleIndex2'));

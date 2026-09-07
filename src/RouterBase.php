@@ -343,7 +343,23 @@ abstract class RouterBase
     }
 
     /**
+     * Get registered routes as a terminal-friendly ASCII table.
+     *
+     * Usage: echo $router->formattedRouteList();
+     *
+     * @return string
+     */
+    public function formattedRouteList(): string
+    {
+        return RouteTableRenderer::render($this->routerArray);
+    }
+
+    /**
      * Get full URL by router name
+     *
+     * First-match-wins on duplicate names. Placeholders are replaced with
+     * urlencode()d values; '{key?}' is tolerated as '{key}'. Not-found
+     * returns the base URL unchanged (pinned for BC).
      *
      * @param $string
      * @param $settings array
@@ -365,14 +381,19 @@ abstract class RouterBase
             $patternReplaceArray = [];
 
             foreach ($settings as $key => $value) {
-                $patternFindArray[] = '/{'.$key.'}/';
-                $patternReplaceArray[] = $value;
+                $patternFindArray[] = '/\\{' . preg_quote((string) $key, '/') . '\\??\\}/';
+                $patternReplaceArray[] = urlencode((string) $value);
             }
 
-            $url = preg_replace($patternFindArray, $patternReplaceArray, $url);
+            $replaced = preg_replace($patternFindArray, $patternReplaceArray, $url);
+            $url = is_string($replaced) ? $replaced : $url;
         }
 
-        return $this->getBaseUrl().ltrim($url, '/');
+        if ($url === '') {
+            return $this->getBaseUrl();
+        }
+
+        return self::joinUrl($this->getBaseUrl(), $url);
     }
 
     /**
