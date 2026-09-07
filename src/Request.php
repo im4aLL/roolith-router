@@ -31,7 +31,7 @@ class Request
      */
     public function __construct()
     {
-        $this->requestMethod = $_SERVER['REQUEST_METHOD'] ?? HttpMethod::GET;
+        $this->requestMethod = strtoupper($_SERVER['REQUEST_METHOD'] ?? HttpMethod::GET);
         $this->requestedParam = [];
     }
 

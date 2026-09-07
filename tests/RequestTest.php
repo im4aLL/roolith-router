@@ -61,6 +61,24 @@ class RequestTest extends TestCase
         $this->assertEquals(HttpMethod::POST, $this->request->getRequestMethod());
     }
 
+    public function testShouldNormalizeLowercaseRequestMethod()
+    {
+        $previous = $_SERVER['REQUEST_METHOD'] ?? null;
+        $_SERVER['REQUEST_METHOD'] = 'get';
+
+        try {
+            $request = new Request();
+
+            $this->assertEquals(HttpMethod::GET, $request->getRequestMethod());
+        } finally {
+            if ($previous === null) {
+                unset($_SERVER['REQUEST_METHOD']);
+            } else {
+                $_SERVER['REQUEST_METHOD'] = $previous;
+            }
+        }
+    }
+
     public function testShouldGetRequestedUrlWithoutBaseUrl()
     {
         $request = $this->getMockBuilder(RequestForTest::class)->onlyMethods(['getCurrentUrl'])->getMock();

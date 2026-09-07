@@ -8,6 +8,20 @@ use Roolith\Route\Interfaces\RouterInterface;
 class Router extends RouterBase implements RouterInterface
 {
     /**
+     * Start index of the most recent registration slice in routerArray.
+     * name() and middleware() apply to the whole slice.
+     *
+     * @var int
+     */
+    private int $registrationSliceStart = 0;
+
+    /**
+     * Stack of outer group settings for nested group() calls.
+     *
+     * @var array
+     */
+    private array $groupSettingsStack = [];
+    /**
      * Router constructor.
      *
      * @param array $settings
@@ -33,6 +47,7 @@ class Router extends RouterBase implements RouterInterface
      */
     public function get($param, $callback): static
     {
+        $this->beginRegistrationSlice();
         $this->registerRoute($param, $callback, HttpMethod::GET);
 
         return $this;
@@ -47,6 +62,7 @@ class Router extends RouterBase implements RouterInterface
      */
     public function post($param, $callback): static
     {
+        $this->beginRegistrationSlice();
         $this->registerRoute($param, $callback, HttpMethod::POST);
 
         return $this;
@@ -61,6 +77,7 @@ class Router extends RouterBase implements RouterInterface
      */
     public function put($param, $callback): static
     {
+        $this->beginRegistrationSlice();
         $this->registerRoute($param, $callback, HttpMethod::PUT);
 
         return $this;
@@ -75,6 +92,7 @@ class Router extends RouterBase implements RouterInterface
      */
     public function patch($param, $callback): static
     {
+        $this->beginRegistrationSlice();
         $this->registerRoute($param, $callback, HttpMethod::PATCH);
 
         return $this;
@@ -89,6 +107,7 @@ class Router extends RouterBase implements RouterInterface
      */
     public function delete($param, $callback): static
     {
+        $this->beginRegistrationSlice();
         $this->registerRoute($param, $callback, HttpMethod::DELETE);
 
         return $this;
@@ -103,6 +122,7 @@ class Router extends RouterBase implements RouterInterface
      */
     public function options($param, $callback): static
     {
+        $this->beginRegistrationSlice();
         $this->registerRoute($param, $callback, HttpMethod::OPTIONS);
 
         return $this;
@@ -119,9 +139,13 @@ class Router extends RouterBase implements RouterInterface
      */
     public function match($array, $param, $callback, string $name = ''): static
     {
+        $this->beginRegistrationSlice();
+
         foreach ($array as $methodName) {
-            if (in_array($methodName, HttpMethod::all())) {
-                $this->registerRoute($param, $callback, $methodName, $name);
+            $normalizedMethodName = strtoupper($methodName);
+
+            if (in_array($normalizedMethodName, HttpMethod::all())) {
+                $this->registerRoute($param, $callback, $normalizedMethodName, $name);
             }
         }
 
@@ -138,6 +162,8 @@ class Router extends RouterBase implements RouterInterface
      */
     public function any($param, $callback, string $name = ''): static
     {
+        $this->beginRegistrationSlice();
+
         foreach (HttpMethod::all() as $methodName) {
             $this->registerRoute($param, $callback, $methodName, $name);
         }
@@ -154,6 +180,8 @@ class Router extends RouterBase implements RouterInterface
      */
     public function crud($param, $callback): static
     {
+        $this->beginRegistrationSlice();
+
         $namePrefix = ltrim($param, '/');
 
         foreach (HttpMethod::all() as $methodName) {
@@ -172,7 +200,7 @@ class Router extends RouterBase implements RouterInterface
                 case HttpMethod::PUT:
                 case HttpMethod::PATCH:
                     $this->registerRoute($param.'/{param}', $this->crudCallback($callback, 'update'), $methodName, $namePrefix.'.update');
-                break;
+                    break;
                 case HttpMethod::DELETE:
                     $this->registerRoute($param.'/{param}', $this->crudCallback($callback, 'destroy'), $methodName, $namePrefix.'.destroy');
                     break;
@@ -187,9 +215,9 @@ class Router extends RouterBase implements RouterInterface
      *
      * @param $callback
      * @param $methodName
-     * @return string
+     * @return mixed
      */
-    private function crudCallback($callback, $methodName): string
+    private function crudCallback($callback, $methodName): mixed
     {
         if (is_string($callback)) {
             return $callback.'@'.$methodName;
@@ -201,6 +229,10 @@ class Router extends RouterBase implements RouterInterface
     /**
      * Define redirect route
      *
+     * Redirect sources must be literal paths: optional placeholders
+     * (e.g. '/a/{x?}') are not expanded here, so register each
+     * concrete source path with a separate redirect() call.
+     *
      * @param $fromUrl
      * @param $toUrl
      * @param int $statusCode
@@ -208,6 +240,7 @@ class Router extends RouterBase implements RouterInterface
      */
     public function redirect($fromUrl, $toUrl, int $statusCode = HttpResponseCode::MOVED_PERMANENTLY): static
     {
+        $this->beginRegistrationSlice();
         $this->registerRedirectRoute($fromUrl, $toUrl, $statusCode);
 
         return $this;
@@ -216,17 +249,67 @@ class Router extends RouterBase implements RouterInterface
     /**
      * Define group for routes
      *
+     * Nested groups merge into the outer group: urlPrefix and namePrefix
+     * concatenate, middleware appends outer first. The callback receives
+     * this router instance, so both `function ($router) { ... }` and
+     * `function () use ($router) { ... }` styles keep working.
+     *
      * @param $settings
      * @param $callback
      * @return Router
      */
     public function group($settings, $callback): static
     {
-        $this->setGroupSettings($settings);
-        call_user_func($callback);
-        $this->resetGroupSettings();
+        $this->groupSettingsStack[] = $this->groupSettings;
+        $this->groupSettings = $this->mergeGroupSettings($this->groupSettings, $settings);
+
+        try {
+            call_user_func($callback, $this);
+        } finally {
+            $this->groupSettings = array_pop($this->groupSettingsStack) ?? [];
+        }
 
         return $this;
+    }
+
+    /**
+     * Merge inner group settings into outer group settings.
+     *
+     * @param $outer
+     * @param $inner
+     * @return array
+     */
+    private function mergeGroupSettings($outer, $inner): array
+    {
+        $merged = is_array($outer) ? $outer : [];
+
+        if (isset($inner['urlPrefix'])) {
+            $outerPrefix = isset($merged['urlPrefix']) ? trim((string) $merged['urlPrefix'], '/') : '';
+            $innerPrefix = trim((string) $inner['urlPrefix'], '/');
+            $merged['urlPrefix'] = $outerPrefix === '' ? $innerPrefix : $outerPrefix.'/'.$innerPrefix;
+        }
+
+        if (isset($inner['namePrefix'])) {
+            $merged['namePrefix'] = ($merged['namePrefix'] ?? '').$inner['namePrefix'];
+        }
+
+        if (isset($inner['middleware'])) {
+            $outerMiddleware = isset($merged['middleware']) ? (array) $merged['middleware'] : [];
+            $innerMiddleware = is_array($inner['middleware']) ? $inner['middleware'] : [$inner['middleware']];
+            $merged['middleware'] = array_merge($outerMiddleware, $innerMiddleware);
+        }
+
+        return $merged;
+    }
+
+    /**
+     * Mark the start of a new registration slice for name()/middleware().
+     *
+     * @return void
+     */
+    private function beginRegistrationSlice(): void
+    {
+        $this->registrationSliceStart = count($this->routerArray);
     }
 
     /**
@@ -288,6 +371,10 @@ class Router extends RouterBase implements RouterInterface
      * Register a route
      * If param is array then register multiple route
      *
+     * Trailing slashes are literal: '/a/' only matches '/a/'.
+     * Group urlPrefix joins are normalized (except root '/'), while
+     * request URLs are rtrimmed, so prefer slash-less registration.
+     *
      * @param $param
      * @param $callback
      * @param $method
@@ -296,7 +383,11 @@ class Router extends RouterBase implements RouterInterface
      */
     private function registerRoute($param, $callback, $method, string $name = ''): void
     {
-        if (!$param || !$callback) {
+        if ($param === null || $param === '' || $param === false || $callback === null || $callback === '' || $callback === false) {
+            return;
+        }
+
+        if (is_array($param) && count($param) === 0) {
             return;
         }
 
@@ -332,20 +423,29 @@ class Router extends RouterBase implements RouterInterface
      */
     private function registerRedirectRoute($fromUrl, $toUrl, $statusCode): void
     {
-        if (str_starts_with($toUrl, 'http')) {
+        if (str_contains($toUrl, '://')) {
             $redirectUrl = $toUrl;
         } else {
-            $redirectUrl = $this->getBaseUrl().ltrim($toUrl, '/');
+            $redirectUrl = self::joinUrl($this->getBaseUrl(), $toUrl);
         }
 
-        $route = [
-            'path' => '/'.ltrim($fromUrl, '/'),
-            'redirect' => $redirectUrl,
-            'method' => HttpMethod::GET,
-            'code' => $statusCode,
-        ];
+        foreach (HttpMethod::all() as $methodName) {
+            $route = [
+                'path' => '/'.ltrim($fromUrl, '/'),
+                'redirect' => $redirectUrl,
+                'method' => $methodName,
+                'code' => $statusCode,
+                'name' => '',
+            ];
 
-        $this->addToRouterArray($route);
+            $groupSettings = $this->getGroupSettings();
+
+            if ($groupSettings) {
+                $this->addGroupSettingsToRoute($route, $groupSettings);
+            }
+
+            $this->addToRouterArray($route);
+        }
 
     }
 
@@ -359,16 +459,19 @@ class Router extends RouterBase implements RouterInterface
     private function addGroupSettingsToRoute(&$route, $groupSettings): void
     {
         if (isset($groupSettings['middleware'])) {
-            $route['middleware'] = $groupSettings['middleware'];
+            $currentMiddleware = isset($route['middleware']) ? (array) $route['middleware'] : [];
+            $groupMiddleware = is_array($groupSettings['middleware']) ? $groupSettings['middleware'] : [$groupSettings['middleware']];
+            $route['middleware'] = array_merge($currentMiddleware, $groupMiddleware);
         }
 
         if (isset($groupSettings['urlPrefix'])) {
-            $path = '/'.ltrim($groupSettings['urlPrefix'], '/').$route['path'];
-            $route['path'] = rtrim($path, '/');
+            $path = self::joinUrl('/'.trim((string) $groupSettings['urlPrefix'], '/'), $route['path']);
+            $path = rtrim($path, '/');
+            $route['path'] = $path === '' ? '/' : $path;
         }
 
         if (isset($groupSettings['namePrefix'])) {
-            $route['name'] = $groupSettings['namePrefix'].$route['name'];
+            $route['name'] = $groupSettings['namePrefix'].($route['name'] ?? '');
         }
     }
 
@@ -385,32 +488,62 @@ class Router extends RouterBase implements RouterInterface
      */
     private function addRouteToRouteArray(&$routeArray, $param, $method, $callback, string $name = ''): void
     {
-        if (str_contains($param, '?')) {
+        if (is_string($param) && preg_match('/\{[^}]*\?\}/', $param)) {
             $paramArray = explode('/', $param);
             $size = count($paramArray);
 
-            $modifiedParamArray = [];
+            // Prefix-chain expansion: each optional segment registers the
+            // prefix before it (earlier optionals kept in present form),
+            // then the full pattern. An empty prefix maps to '/' by design.
+            $prefixSegments = [];
+
             for ($i = 0; $i < $size; $i++) {
-                if (str_contains($paramArray[$i], '?')) {
-                    $this->addRouteToRouteArray($routeArray, implode('/', $modifiedParamArray), $method, $callback, $name);
-                    $this->addRouteToRouteArray($routeArray, str_replace('?', '', $param), $method, $callback, $name);
+                if (preg_match('/\{[^}]*\?\}/', $paramArray[$i])) {
+                    $this->appendExpandedRoute($routeArray, $prefixSegments, $method, $callback, $name);
+                    $prefixSegments[] = str_replace('?', '', $paramArray[$i]);
                 } else {
-                    $modifiedParamArray[] = $paramArray[$i];
+                    $prefixSegments[] = $paramArray[$i];
                 }
             }
+
+            $this->appendExpandedRoute($routeArray, $prefixSegments, $method, $callback, $name);
         } else {
-            $routeArray[] = [
-                'path' => '/'.ltrim($param, '/'),
-                'method' => $method,
-                'execute' => $callback,
-                'name' => $name,
-            ];
+            $this->appendExpandedRoute($routeArray, explode('/', $param), $method, $callback, $name);
         }
 
     }
 
     /**
-     * Adding name to last route item
+     * Append one expanded route, skipping duplicates within the expansion.
+     *
+     * @param $routeArray
+     * @param $segments
+     * @param $method
+     * @param $callback
+     * @param string $name
+     * @return void
+     */
+    private function appendExpandedRoute(&$routeArray, $segments, $method, $callback, string $name = ''): void
+    {
+        // $path always starts with '/'; an empty segment list maps to root '/'.
+        $path = '/'.ltrim(implode('/', $segments), '/');
+
+        foreach ($routeArray as $existingRoute) {
+            if ($existingRoute['path'] === $path && $existingRoute['method'] === $method) {
+                return;
+            }
+        }
+
+        $routeArray[] = [
+            'path' => $path,
+            'method' => $method,
+            'execute' => $callback,
+            'name' => $name,
+        ];
+    }
+
+    /**
+     * Adding name to the whole last registration slice
      *
      * @param $string
      * @return $this|bool
@@ -421,14 +554,16 @@ class Router extends RouterBase implements RouterInterface
             return false;
         }
 
-        $namePrefix = end($this->routerArray)['name'] ?? '';
-        $this->routerArray[count($this->routerArray) - 1]['name'] = $namePrefix.$string;
+        foreach ($this->registrationSliceIndexes() as $index) {
+            $namePrefix = $this->routerArray[$index]['name'] ?? '';
+            $this->routerArray[$index]['name'] = $namePrefix.$string;
+        }
 
         return $this;
     }
 
     /**
-     * Adding middleware to last route item
+     * Adding middleware to the whole last registration slice
      *
      * @param $middlewareClass
      * @return $this|bool
@@ -439,25 +574,45 @@ class Router extends RouterBase implements RouterInterface
             return false;
         }
 
-        $currentRouterMiddleware = $this->routerArray[count($this->routerArray) - 1]['middleware'] ?? null;
+        foreach ($this->registrationSliceIndexes() as $index) {
+            $currentRouterMiddleware = $this->routerArray[$index]['middleware'] ?? null;
 
-        $middlewareList = [];
+            $middlewareList = [];
 
-        if ($currentRouterMiddleware) {
-            if (is_array($currentRouterMiddleware)) {
-                foreach ($currentRouterMiddleware as $middleware) {
-                    $middlewareList[] = $middleware;
+            if ($currentRouterMiddleware) {
+                if (is_array($currentRouterMiddleware)) {
+                    foreach ($currentRouterMiddleware as $middleware) {
+                        $middlewareList[] = $middleware;
+                    }
+                } else {
+                    $middlewareList[] = $currentRouterMiddleware;
                 }
-            } else {
-                $middlewareList[] = $currentRouterMiddleware;
             }
+
+            $middlewareList[] = $middlewareClass;
+
+            $this->routerArray[$index]['middleware'] = $middlewareList;
         }
 
-        $middlewareList[] = $middlewareClass;
-
-        $this->routerArray[count($this->routerArray) - 1]['middleware'] = $middlewareList;
-
         return $this;
+    }
+
+    /**
+     * Indexes of the most recent registration slice.
+     *
+     * @return array
+     */
+    private function registrationSliceIndexes(): array
+    {
+        $total = count($this->routerArray);
+
+        if ($this->registrationSliceStart >= $total) {
+            return [];
+        }
+
+        $start = max(0, $this->registrationSliceStart);
+
+        return range($start, $total - 1);
     }
 
     /**

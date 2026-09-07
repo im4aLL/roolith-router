@@ -5,9 +5,11 @@ use DI\Container;
 use DI\DependencyException;
 use DI\NotFoundException;
 use Roolith\Route\HttpConstants\HttpResponseCode;
+use Roolith\Route\Traits\UrlJoinTrait;
 
 abstract class RouterBase
 {
+    use UrlJoinTrait;
     /**
      * List of all routes
      *
@@ -256,51 +258,6 @@ abstract class RouterBase
     }
 
     /**
-     * Route match method in plain
-     *
-     * @param $routerPath
-     * @param $url
-     * @return array|bool
-     */
-    protected function matchPlain($routerPath, $url): bool|array
-    {
-        $result = false;
-
-        $findArray = [];
-        $replaceArray = [];
-
-        $routerPathArray = explode('/', $routerPath);
-        $routerPathArraySize = count($routerPathArray);
-        $urlArray = explode('/', $url);
-
-        for ($i = 0; $i < $routerPathArraySize; $i++) {
-            if (isset($routerPathArray[$i]) && isset($urlArray[$i]) && $routerPathArray[$i] != $urlArray[$i]) {
-                $findArray[] = $routerPathArray[$i];
-                $replaceArray[] = $urlArray[$i];
-            }
-        }
-
-        $replacedRouterPathArray = [];
-        foreach ($routerPathArray as $item) {
-            $index = array_search($item, $findArray);
-            if (is_numeric($index) && $index >= 0) {
-                $replacedRouterPathArray[] = $replaceArray[$index];
-            } else {
-                $replacedRouterPathArray[] = $item;
-            }
-        }
-
-        $replacedRouterPath = implode('/', $replacedRouterPathArray);
-        if ($replacedRouterPath == $url) {
-            $result = $replaceArray;
-
-            $this->request->setRequestedParam($findArray, $replaceArray);
-        }
-
-        return $result;
-    }
-
-    /**
      * Route match method with regex
      *
      * @param $routerPath
@@ -319,7 +276,20 @@ abstract class RouterBase
             return false;
         }
 
-        $routerPattern = preg_replace([$pattern, '/\//'], ['[a-zA-Z0-9\_\-]+', '\/'], $routerPath);
+        $routerPattern = implode('\/', array_map(function ($segment) {
+            $parts = preg_split('/({[^}]*})/', $segment, -1, PREG_SPLIT_DELIM_CAPTURE);
+            $built = '';
+
+            foreach ($parts as $part) {
+                if (preg_match('/^{[^}]*}$/', $part)) {
+                    $built .= '[^\/]+';
+                } else {
+                    $built .= preg_quote($part, '/');
+                }
+            }
+
+            return $built;
+        }, explode('/', $routerPath)));
         $actualRouterPattern = "/^$routerPattern$/s";
         preg_match($actualRouterPattern, $url, $patternMatch);
 
@@ -332,6 +302,10 @@ abstract class RouterBase
         $routerPathArray = explode('/', $routerPath);
         $routerPathArraySize = count($routerPathArray);
         $urlArray = explode('/', $url);
+
+        if (count($urlArray) !== $routerPathArraySize) {
+            return false;
+        }
 
         for ($i = 0; $i < $routerPathArraySize; $i++) {
             if ($routerPathArray[$i] != $urlArray[$i]) {
