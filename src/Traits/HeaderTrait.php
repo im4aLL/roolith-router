@@ -48,6 +48,10 @@ trait HeaderTrait
     {
         $safeUrl = str_replace(["\r", "\n"], '', (string) $url);
 
+        if (property_exists($this, 'headers')) {
+            $this->headers['Location'] = $safeUrl;
+        }
+
         if (!headers_sent()) {
             header("Location: $safeUrl");
         }

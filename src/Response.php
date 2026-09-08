@@ -31,6 +31,19 @@ class Response
     protected ?string $lastOutput = null;
 
     /**
+     * Stored headers for testability and middleware emission.
+     *
+     * HeaderTrait sends headers via header() immediately; this map keeps a
+     * copy so a returned Response can be re-emitted by the router without
+     * losing Location / Content-Type / custom headers in CLI tests where
+     * header() is a no-op. Keys keep original case, lookups are
+     * case-insensitive.
+     *
+     * @var array<string, string>
+     */
+    protected array $headers = [];
+
+    /**
      * Response constructor.
      */
     public function __construct()
@@ -92,6 +105,17 @@ class Response
      */
     public function body(mixed $content = ''): static
     {
+        if ($content instanceof self) {
+            $this->applyReturnedResponse($content);
+            $output = $content->getLastOutput();
+
+            if ($output !== null && $output !== '') {
+                echo $output;
+            }
+
+            return $this;
+        }
+
         $output = $this->renderBody($content);
 
         echo $output;
@@ -102,11 +126,24 @@ class Response
     /**
      * Render response body without echoing (test/embedding hook).
      *
+     * A vendor Response value is unwrapped: its status and stored headers
+     * (including Location and Content-Type) are applied with no second
+     * Content-Type, and its pre-rendered body is returned verbatim.
+     *
      * @param mixed $content
      * @return string
      */
     public function renderBody(mixed $content = ''): string
     {
+        if ($content instanceof self) {
+            $this->applyReturnedResponse($content);
+
+            $output = $content->getLastOutput() ?? '';
+            $this->lastOutput = $output;
+
+            return $output;
+        }
+
         if (is_array($content) || is_object($content)) {
             $output = $this->setHeaderJson()->outputJson($content);
         } else {
@@ -116,6 +153,40 @@ class Response
         $this->lastOutput = is_string($output) ? $output : (string) $output;
 
         return $this->lastOutput;
+    }
+
+    /**
+     * Apply a returned Response value (status + headers, no body echo).
+     *
+     * Shared by body()/renderBody() so controllers returning a vendor
+     * Response emit directly in both legacy and next() flows.
+     *
+     * @param self $returned Returned Response value.
+     * @return void
+     */
+    private function applyReturnedResponse(self $returned): void
+    {
+        $this->setStatusCode($returned->getStatusCode());
+
+        foreach ($returned->getHeaders() as $name => $value) {
+            if (strtolower((string) $name) === 'location') {
+                continue;
+            }
+
+            $this->setHeader((string) $name, (string) $value);
+        }
+
+        $location = $returned->getHeader('Location');
+
+        if ($location !== null) {
+            $this->redirect($location);
+        }
+
+        $body = $returned->getLastOutput();
+
+        if ($body !== null) {
+            $this->lastOutput = $body;
+        }
     }
 
     /**
@@ -137,6 +208,7 @@ class Response
     {
         if (!$this->hasHeaderContentType()) {
             $this->makeJsonHeader();
+            $this->headers['Content-Type'] = 'application/json; charset=UTF-8';
             $this->hasHeaderContentType = true;
         }
 
@@ -152,6 +224,7 @@ class Response
     {
         if (!$this->hasHeaderContentType()) {
             $this->makeHtmlHeader();
+            $this->headers['Content-Type'] = 'text/html; charset=UTF-8';
             $this->hasHeaderContentType = true;
         }
 
@@ -167,8 +240,101 @@ class Response
     {
         if (!$this->hasHeaderContentType()) {
             $this->makePlainTextHeader();
+            $this->headers['Content-Type'] = 'text/plain; charset=UTF-8';
             $this->hasHeaderContentType = true;
         }
+
+        return $this;
+    }
+
+    /**
+     * Set an arbitrary header, stored for re-emission and sent when possible.
+     *
+     * CR/LF is stripped from name and value to block header injection.
+     * Setting Content-Type marks the Content-Type flag so a later
+     * setHeaderJson/Html does not emit a second Content-Type.
+     *
+     * @param string $name Header name.
+     * @param string $value Header value.
+     * @return $this
+     */
+    public function setHeader(string $name, string $value): static
+    {
+        $safeName = str_replace(["\r", "\n"], '', trim($name));
+        $safeValue = str_replace(["\r", "\n"], '', $value);
+
+        if ($safeName === '') {
+            return $this;
+        }
+
+        $this->headers[$safeName] = $safeValue;
+
+        if (strtolower($safeName) === 'content-type') {
+            $this->hasHeaderContentType = true;
+        }
+
+        if (!headers_sent()) {
+            header($safeName . ': ' . $safeValue);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Check for a stored header (case-insensitive).
+     *
+     * @param string $name Header name.
+     * @return bool
+     */
+    public function hasHeader(string $name): bool
+    {
+        return $this->getHeader($name) !== null;
+    }
+
+    /**
+     * Get a stored header value (case-insensitive) or null when missing.
+     *
+     * @param string $name Header name.
+     * @return string|null
+     */
+    public function getHeader(string $name): ?string
+    {
+        $wanted = strtolower(trim($name));
+
+        foreach ($this->headers as $key => $value) {
+            if (strtolower((string) $key) === $wanted) {
+                return (string) $value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get all stored headers.
+     *
+     * @return array<string, string>
+     */
+    public function getHeaders(): array
+    {
+        return $this->headers;
+    }
+
+    /**
+     * Echo a pre-rendered body without touching headers or status.
+     *
+     * Test/embedding hook kept for backward compatibility; the next()
+     * middleware pipeline emits via emitMiddlewareResponse()->body()
+     * instead. Updates lastOutput for testability.
+     *
+     * @param string $body Pre-rendered body string.
+     * @return $this
+     */
+    public function sendRaw(string $body): static
+    {
+        $this->lastOutput = $body;
+
+        echo $body;
 
         return $this;
     }

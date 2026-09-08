@@ -167,7 +167,67 @@ $router->get('/admin/dashboard', function() {
     return 'Dashboard content';
 })->middleware(\Demo\AuthMiddleware::class);
 ```
-Middleware must extend `Roolith\Route\Middleware` and implement `process(Request $request, Response $response): bool`. Return `true` to continue or `false` to block; a blocked request emits one response with body `Invalid request` and the middleware `$status_code` (default 403, set `$status_code = 401` for 401, etc.). Chain or stack them with repeated calls or arrays: `->middleware(A::class)->middleware(B::class)` runs `A` then `B`; `->middleware([A::class, $instance])` and already-instantiated entries also work and are resolved via DI with plain-instantiation fallback. An unknown/invalid entry emits one 500 (`Middleware X doesn't exist or is invalid`); a throwing `process()` is logged and emits one generic 500 (`Middleware Error`).
+`->middleware(X::class)` or `->middleware(new X())` works per route and in groups, for both styles. Class-strings resolve via DI with `new` fallback. Unknown entries emit one 500; throwing middleware is logged and emits one generic 500.
+
+Legacy (BC): extend `Roolith\Route\Middleware` with `process(Request $request, Response $response): bool`. Return `true` to continue, `false` to block with `Invalid request` + `$status_code` (default 403). All-legacy routes keep the original loop.
+
+New-style (onion): implement `Roolith\Route\Interfaces\NextMiddlewareInterface` (`Roolith\Route\NextMiddleware` is a thin alias) with `process(Request $request, callable $next): mixed`. Order is registration order, outer group first: `M1-pre -> M2-pre -> handler -> M2-post -> M1-post`. Legacy entries inside a mixed chain act as gates. Not calling `$next` means the controller never runs.
+
+| Return | Meaning |
+| --- | --- |
+| `false` (no `$next` call) | Block with `Invalid request` + `$status_code` (default 403) |
+| `Response` | Emit directly (status + headers + body; `Location`/`3xx` = redirect) |
+| `string` / `array\|object` | Emit as HTML / JSON via `Response::body()` |
+| `true` / `null` | Continue automatically (same as `return $next($request)`) |
+| `return $next($request)` | Pass handler result through, optionally transformed |
+| `throw` | Log + single generic 500 |
+
+Notes: a returned `Response` status wins over `$status_code`; a handler `false` passed through is 200 empty, not a block; handlers must return values (echoes inside the chain are discarded); handlers may return a `Response` directly; the pipeline catches handler throws (legacy without middleware lets them bubble).
+```php
+use Roolith\Route\Interfaces\NextMiddlewareInterface;
+use Roolith\Route\Request;
+use Roolith\Route\Response;
+// Auth gate with header post-processing.
+final class AuthMiddleware implements NextMiddlewareInterface
+{
+    public function process(Request $request, callable $next): mixed
+    {
+        if (/* session has user */ true) {
+            $result = $next($request);
+            if ($result instanceof Response) {
+                return $result->setHeader('X-Auth-Checked', '1');
+            }
+            $wrapped = new Response();
+            $wrapped->setHeader('X-Auth-Checked', '1');
+            $wrapped->renderBody((string) $result);
+            return $wrapped;
+        }
+        $redirect = new Response();
+        $redirect->setStatusCode(302);
+        $redirect->redirect('/login');
+        return $redirect;
+    }
+}
+// CSRF gate: safe methods pass, bad token is 403 without running the controller.
+final class CsrfMiddleware implements NextMiddlewareInterface
+{
+    public function process(Request $request, callable $next): mixed
+    {
+        if (strtoupper((string) $request->getRequestMethod()) === 'GET' || /* token valid */ false) {
+            return $next($request);
+        }
+        $forbidden = new Response();
+        $forbidden->setStatusCode(403);
+        $forbidden->renderBody('Invalid CSRF token.');
+        return $forbidden;
+    }
+}
+$router->get('/admin/dashboard', function () {
+    return 'Dashboard content';
+})->middleware(AuthMiddleware::class);
+$router->post('/form', [FormController::class, 'submit'])->middleware(CsrfMiddleware::class);
+```
+Use `renderBody()` (no echo) when building a returned `Response`; `body()` echoes and is for final emission. `setHeader()` / `getHeader()` / `getHeaders()` store headers so `Location` and custom headers survive re-emission. `redirect()` stores `Location` and returns void, so call it on its own line before `return $response;`.
 #### Group route
 ```php
 $router->group(['middleware' => \Demo\AuthMiddleware::class, 'urlPrefix' => 'user/{userId}', 'namePrefix' => 'user.'], function () use ($router) {
@@ -215,11 +275,15 @@ $response->setHeaderJson();
 $response->setHeaderHtml();
 $response->setHeaderPlain();
 $has = $response->hasHeaderContentType();
+$response->setHeader('X-Custom', '1');
+$value = $response->getHeader('X-Custom');
+$all = $response->getHeaders();
+$response->sendRaw('pre-rendered');
 $response->errorResponse('Oops', 500);
 $response->errorJson(['error' => 'Oops'], 500);
 $response->redirect('http://example.com/target');
 ```
-`body()` echoes for BC and also stores/returns the rendered string via `renderBody()`/`getLastOutput()`. Status and `Content-Type` sends are skipped when headers were already sent (CLI/prior output safe). `errorResponse()` is HTML-only and defaults to 500 (was 403); pass 403/404 explicitly where needed. `errorJson()` mirrors the same status contract with a JSON body. `outputJson()` throws `RuntimeException('JSON encoding failed: ...')` on encoding failure. `redirect()` strips CR/LF and does not exit.
+`body()` echoes for BC and also stores/returns the rendered string via `renderBody()`/`getLastOutput()`; passing a vendor `Response` value unwraps it (status + stored headers + pre-rendered body, no double `Content-Type`). Status and `Content-Type` sends are skipped when headers were already sent (CLI/prior output safe). `setHeader()`/`getHeader()`/`getHeaders()`/`hasHeader()` store arbitrary headers (CR/LF stripped) so middleware `Location` and custom headers survive re-emission and stay testable; `redirect()` now stores `Location` too. `sendRaw()` echoes a pre-rendered body without touching headers or status (test/embedding hook kept for BC; pipeline emits via `emitMiddlewareResponse()->body()`). `errorResponse()` is HTML-only and defaults to 500 (was 403); pass 403/404 explicitly where needed. `errorJson()` mirrors the same status contract with a JSON body. `outputJson()` throws `RuntimeException('JSON encoding failed: ...')` on encoding failure. `redirect()` strips CR/LF and does not exit.
 #### Error views
 ```php
 $router->setViewDir(__DIR__ . '/views');

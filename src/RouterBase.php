@@ -155,6 +155,9 @@ abstract class RouterBase
      * and execution continues, so callers needing termination must handle
      * it themselves. Kept as `return $this` for backward compatibility.
      *
+     * Shares resolveHandlerResult() with the next() pipeline so handler
+     * outcomes cannot drift between legacy and middleware paths.
+     *
      * @param $router
      * @return $this
      */
@@ -165,51 +168,117 @@ abstract class RouterBase
             return $this;
         }
 
+        $result = $this->resolveHandlerResult($router);
+        $this->response->body($result);
+
+        return $this;
+    }
+
+    /**
+     * Resolve a matched route to its raw handler result without emitting.
+     *
+     * Shared primitive for executeRouteMethod() (which emits via
+     * Response::body()) and the next() pipeline final handler. Redirects
+     * and error cases return a vendor Response carrying status + headers +
+     * pre-rendered body; successful handlers return their raw value
+     * (string/array/Response/false/etc.) for the caller to emit. Handler
+     * Throwables bubble to the caller (legacy run() lets them bubble, the
+     * pipeline catch-all turns them into a single 500).
+     *
+     * @param array $router Matched route.
+     * @return mixed Handler raw value or vendor Response for redirects/errors.
+     */
+    protected function resolveHandlerResult(array $router): mixed
+    {
         if (isset($router['redirect'])) {
-            $this->response->setStatusCode($router['code']);
-            $this->response->redirect($router['redirect']);
-            return $this;
+            $redirect = new Response();
+            $redirect->setStatusCode((int) ($router['code'] ?? HttpResponseCode::MOVED_PERMANENTLY));
+            $redirect->redirect((string) $router['redirect']);
+
+            return $redirect;
         }
 
         if (isset($router['execute']) && is_callable($router['execute'])) {
-            $content = isset($router['payload']) ? call_user_func_array($router['execute'], $router['payload']) : call_user_func($router['execute']);
-            $this->response->body($content);
-        } elseif (isset($router['execute']) && is_string($router['execute'])) {
+            if (isset($router['payload'])) {
+                return call_user_func_array($router['execute'], $router['payload']);
+            }
+
+            return call_user_func($router['execute']);
+        }
+
+        if (isset($router['execute']) && is_string($router['execute'])) {
             $controllerReference = $router['execute'];
 
             if (!str_contains($controllerReference, '@')) {
-                $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::INTERNAL_SERVER_ERROR, "Invalid controller reference '$controllerReference' (expected 'Class@method')"), HttpResponseCode::INTERNAL_SERVER_ERROR);
-
-                return $this;
+                return $this->buildHandlerErrorResponse(HttpResponseCode::INTERNAL_SERVER_ERROR, "Invalid controller reference '$controllerReference' (expected 'Class@method')");
             }
 
             [$className, $classMethodName] = explode('@', $controllerReference, 2);
 
             if (!class_exists($className)) {
-                $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::NOT_FOUND, "Class $className doesn't exist"), HttpResponseCode::NOT_FOUND);
-
-                return $this;
+                return $this->buildHandlerErrorResponse(HttpResponseCode::NOT_FOUND, "Class $className doesn't exist");
             }
 
             if (!method_exists($className, $classMethodName)) {
-                $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::NOT_FOUND, "$classMethodName method doesn't exist in $className"), HttpResponseCode::NOT_FOUND);
-
-                return $this;
+                return $this->buildHandlerErrorResponse(HttpResponseCode::NOT_FOUND, "$classMethodName method doesn't exist in $className");
             }
 
             if ($this->use_di) {
-                $this->executeRouteMethodClassDI($className, $classMethodName, $router);
-            } else {
-                $this->executeRouteMethodClassLegacy($className, $classMethodName, $router);
+                try {
+                    $classDI = $this->container->get($className);
+                } catch (\Throwable $e) {
+                    error_log('[Roolith Router] Dependency injection failed for ' . $className . '@' . $classMethodName . ': ' . $this->sanitizeLogDetail($e->getMessage()));
+
+                    return $this->buildHandlerErrorResponse(HttpResponseCode::INTERNAL_SERVER_ERROR, 'Dependency Injection Error On ' . $className . ' ' . $classMethodName);
+                }
+
+                if (!isset($classDI)) {
+                    return $this->buildHandlerErrorResponse(HttpResponseCode::INTERNAL_SERVER_ERROR, 'Dependency Injection Error On ' . $className . ' ' . $classMethodName);
+                }
+
+                if (isset($router['payload'])) {
+                    return call_user_func_array([$classDI, $classMethodName], $router['payload']);
+                }
+
+                return call_user_func([$classDI, $classMethodName]);
             }
-        } else {
-            // Residual type (array, int, null, or missing key): neither
-            // callable nor 'Class@method' string. Emit one generic 500
-            // instead of silently returning 200 with no body.
-            $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::INTERNAL_SERVER_ERROR, 'Invalid route handler'), HttpResponseCode::INTERNAL_SERVER_ERROR);
+
+            try {
+                $instance = new $className();
+            } catch (\Throwable $e) {
+                error_log('[Roolith Router] Legacy controller instantiation failed for ' . $className . '@' . $classMethodName . ': ' . $this->sanitizeLogDetail($e->getMessage()));
+
+                return $this->buildHandlerErrorResponse(HttpResponseCode::INTERNAL_SERVER_ERROR, 'Controller Error On ' . $className . ' ' . $classMethodName);
+            }
+
+            if (isset($router['payload'])) {
+                return call_user_func_array([$instance, $classMethodName], $router['payload']);
+            }
+
+            return call_user_func([$instance, $classMethodName]);
         }
 
-        return $this;
+        // Residual type (array, int, null, or missing key): neither
+        // callable nor 'Class@method' string. Return one generic 500
+        // instead of silently returning 200 with no body.
+        return $this->buildHandlerErrorResponse(HttpResponseCode::INTERNAL_SERVER_ERROR, 'Invalid route handler');
+    }
+
+    /**
+     * Build a vendor error Response without emitting (shared helper).
+     *
+     * @param int $code HTTP status.
+     * @param string $message Fallback message for view lookup.
+     * @return Response
+     */
+    protected function buildHandlerErrorResponse(int $code, string $message): Response
+    {
+        $html = $this->getViewHtmlByStatusCode($code, $message);
+        $error = new Response();
+        $error->setStatusCode($code);
+        $error->renderBody($html);
+
+        return $error;
     }
 
     /**
@@ -226,66 +295,6 @@ abstract class RouterBase
         $safe = str_replace(["\r", "\n"], ' ', $detail);
 
         return mb_substr($safe, 0, 500);
-    }
-
-    /**
-     * Invoke class method with dependency injection
-     *
-     * Each failure path emits exactly one response and returns: the raw
-     * exception message is logged (not echoed) and the client gets a
-     * generic 500 body per the chunk 1 status contract.
-     *
-     * @param $className string
-     * @param $classMethodName string
-     * @param $router
-     * @return void
-     */
-    private function executeRouteMethodClassDI(string $className, string $classMethodName, mixed $router): void
-    {
-        try {
-            $classDI = $this->container->get($className);
-        } catch (\Throwable $e) {
-            error_log('[Roolith Router] Dependency injection failed for ' . $className . '@' . $classMethodName . ': ' . $this->sanitizeLogDetail($e->getMessage()));
-            $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::INTERNAL_SERVER_ERROR, 'Dependency Injection Error On ' . $className . ' ' . $classMethodName), HttpResponseCode::INTERNAL_SERVER_ERROR);
-
-            return;
-        }
-
-        if (!isset($classDI)) {
-            $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::INTERNAL_SERVER_ERROR, 'Dependency Injection Error On ' . $className . ' ' . $classMethodName), HttpResponseCode::INTERNAL_SERVER_ERROR);
-
-            return;
-        }
-
-        $content = isset($router['payload']) ? call_user_func_array([$classDI, $classMethodName], $router['payload']) : call_user_func([$classDI, $classMethodName]);
-        $this->response->body($content);
-    }
-
-    /**
-     * Invoke class method in tradition way
-     *
-     * Plain instantiation fatals on constructor dependencies, so it is
-     * wrapped: an uninstantiable class emits a single 500 response and
-     * returns instead of bubbling an Error.
-     *
-     * @param $className string
-     * @param $classMethodName string
-     * @param $router
-     * @return void
-     */
-    private function executeRouteMethodClassLegacy(string $className, string $classMethodName, mixed $router): void
-    {
-        try {
-            $instance = new $className();
-        } catch (\Throwable $e) {
-            error_log('[Roolith Router] Legacy controller instantiation failed for ' . $className . '@' . $classMethodName . ': ' . $this->sanitizeLogDetail($e->getMessage()));
-            $this->response->errorResponse($this->getViewHtmlByStatusCode(HttpResponseCode::INTERNAL_SERVER_ERROR, 'Controller Error On ' . $className . ' ' . $classMethodName), HttpResponseCode::INTERNAL_SERVER_ERROR);
-
-            return;
-        }
-
-        $content = isset($router['payload']) ? call_user_func_array([$instance, $classMethodName], $router['payload']) : call_user_func([$instance, $classMethodName]);
-        $this->response->body($content);
     }
 
     /**

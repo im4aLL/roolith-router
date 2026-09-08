@@ -3,6 +3,7 @@ namespace Roolith\Route;
 
 use Roolith\Route\HttpConstants\HttpMethod;
 use Roolith\Route\HttpConstants\HttpResponseCode;
+use Roolith\Route\Interfaces\NextMiddlewareInterface;
 use Roolith\Route\Interfaces\RouterInterface;
 
 class Router extends RouterBase implements RouterInterface
@@ -360,12 +361,19 @@ class Router extends RouterBase implements RouterInterface
     /**
      * Match the requested URL with a route list and execute it's callable method
      *
-     * Middleware entries are validated (existing class extending Middleware)
-     * and resolved via the DI container with a plain-instantiation fallback;
-     * an unresolvable entry emits a single 500 response. A blocked request
-     * emits a single response whose body is built for the middleware's own
-     * status code. Unknown verbs (HEAD/TRACE/custom) never match a route,
-     * so they fall through to the 405/404 handling below.
+     * Middleware entries are validated (legacy class extending Middleware or
+     * new-style implementing NextMiddlewareInterface) and resolved via the DI
+     * container with a plain-instantiation fallback; an unresolvable entry
+     * emits a single 500 response. A blocked request emits a single response
+     * whose body is built for the middleware's own status code. Unknown verbs
+     * (HEAD/TRACE/custom) never match a route, so they fall through to the
+     * 405/404 handling below.
+     *
+     * When every entry is legacy the original loop runs unchanged for BC.
+     * When any entry is new-style an onion chain runs in registration order
+     * (outer group first): each new-style process($request, $next) may gate,
+     * short-circuit with a Response/string/array, or post-process
+     * $next($request). Legacy entries inside a mixed chain run as gates.
      *
      * @return $this
      */
@@ -394,11 +402,38 @@ class Router extends RouterBase implements RouterInterface
                 $router['middleware'] = [$router['middleware']];
             }
 
+            $resolved = [];
+
             foreach ($router['middleware'] as $middleware) {
                 $middlewareInstance = $this->resolveMiddleware($middleware);
 
-                if (!$middlewareInstance instanceof Middleware) {
+                if (!is_object($middlewareInstance)) {
                     $middlewareName = is_string($middleware) ? $middleware : get_debug_type($middleware);
+                    $html = $this->getViewHtmlByStatusCode(HttpResponseCode::INTERNAL_SERVER_ERROR, "Middleware $middlewareName doesn't exist or is invalid");
+                    $this->response->errorResponse($html, HttpResponseCode::INTERNAL_SERVER_ERROR);
+
+                    return $this;
+                }
+
+                $resolved[] = $middlewareInstance;
+            }
+
+            $hasNextStyle = false;
+
+            foreach ($resolved as $middlewareInstance) {
+                if ($this->isNewStyleMiddleware($middlewareInstance)) {
+                    $hasNextStyle = true;
+                    break;
+                }
+            }
+
+            if ($hasNextStyle) {
+                return $this->runWithNextMiddleware($router, $resolved);
+            }
+
+            foreach ($resolved as $middlewareInstance) {
+                if (!$middlewareInstance instanceof Middleware) {
+                    $middlewareName = get_class($middlewareInstance);
                     $html = $this->getViewHtmlByStatusCode(HttpResponseCode::INTERNAL_SERVER_ERROR, "Middleware $middlewareName doesn't exist or is invalid");
                     $this->response->errorResponse($html, HttpResponseCode::INTERNAL_SERVER_ERROR);
 
@@ -434,22 +469,38 @@ class Router extends RouterBase implements RouterInterface
     /**
      * Resolve a route middleware entry to an instance.
      *
-     * String entries must name an existing Middleware subclass and are
-     * resolved via the DI container so constructor dependencies can be
-     * injected; a container failure falls back to plain instantiation.
-     * Already-instantiated Middleware entries pass through. Returns null
-     * when the entry is invalid or cannot be instantiated.
+     * String entries must name an existing legacy Middleware subclass or a
+     * new-style NextMiddlewareInterface implementation and are resolved via
+     * the DI container so constructor dependencies can be injected; a
+     * container failure falls back to plain instantiation.
+     * Already-instantiated entries of either style pass through (new-style
+     * duck-typed objects with public process(Request, callable|Closure) are
+     * also accepted so framework middleware works before repointing at the
+     * vendor contract). Returns null when the entry is invalid or cannot be
+     * instantiated.
      *
      * @param $middleware
-     * @return Middleware|null
+     * @return object|null
      */
-    private function resolveMiddleware(mixed $middleware): ?Middleware
+    private function resolveMiddleware(mixed $middleware): ?object
     {
         if ($middleware instanceof Middleware) {
             return $middleware;
         }
 
-        if (!is_string($middleware) || !class_exists($middleware) || !is_subclass_of($middleware, Middleware::class)) {
+        if ($middleware instanceof NextMiddlewareInterface) {
+            return $middleware;
+        }
+
+        if (is_object($middleware) && $this->isNewStyleMiddleware($middleware)) {
+            return $middleware;
+        }
+
+        if (!is_string($middleware) || !class_exists($middleware)) {
+            return null;
+        }
+
+        if (!is_subclass_of($middleware, Middleware::class) && !is_subclass_of($middleware, NextMiddlewareInterface::class) && !$this->hasNextStyleSignature($middleware)) {
             return null;
         }
 
@@ -459,7 +510,7 @@ class Router extends RouterBase implements RouterInterface
             $instance = null;
         }
 
-        if (!$instance instanceof Middleware) {
+        if (!is_object($instance)) {
             try {
                 $instance = new $middleware();
             } catch (\Throwable) {
@@ -467,7 +518,380 @@ class Router extends RouterBase implements RouterInterface
             }
         }
 
-        return $instance instanceof Middleware ? $instance : null;
+        if ($instance instanceof Middleware) {
+            return $instance;
+        }
+
+        if ($instance instanceof NextMiddlewareInterface) {
+            return $instance;
+        }
+
+        if (is_object($instance) && $this->isNewStyleMiddleware($instance)) {
+            return $instance;
+        }
+
+        return null;
+    }
+
+    /**
+     * Check whether an instance is new-style (next() chaining).
+     *
+     * Explicit NextMiddlewareInterface wins; otherwise a duck-typed object
+     * with public process(Request, callable|Closure) counts so framework
+     * middleware that has not yet repointed at the vendor contract still
+     * runs. Legacy Middleware subclasses without the new interface are
+     * never new-style (their signature cannot be callable without fatalling).
+     *
+     * @param object $instance Middleware instance.
+     * @return bool
+     */
+    private function isNewStyleMiddleware(object $instance): bool
+    {
+        if ($instance instanceof NextMiddlewareInterface) {
+            return true;
+        }
+
+        if ($instance instanceof Middleware) {
+            return false;
+        }
+
+        if (!method_exists($instance, 'process')) {
+            return false;
+        }
+
+        try {
+            $ref = new \ReflectionMethod($instance, 'process');
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return $this->hasNewStyleProcessSignature($ref);
+    }
+
+    /**
+     * Check whether a class-string declares public process(Request, callable|Closure).
+     *
+     * @param string $className Class to inspect.
+     * @return bool
+     */
+    private function hasNextStyleSignature(string $className): bool
+    {
+        try {
+            $ref = new \ReflectionMethod($className, 'process');
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return $this->hasNewStyleProcessSignature($ref);
+    }
+
+    /**
+     * Shared new-style signature check: public + Request first param + callable|Closure second.
+     *
+     * Rejects private process() and process(mixed, callable) that would
+     * otherwise fatal to a confusing 500 at call time.
+     *
+     * @param \ReflectionMethod $ref process() reflection.
+     * @return bool
+     */
+    private function hasNewStyleProcessSignature(\ReflectionMethod $ref): bool
+    {
+        if (!$ref->isPublic()) {
+            return false;
+        }
+
+        $params = $ref->getParameters();
+
+        if (count($params) < 2) {
+            return false;
+        }
+
+        return $this->acceptsRequest($params[0]) && $this->allowsCallable($params[1]);
+    }
+
+    /**
+     * Check whether a reflection parameter accepts the vendor Request.
+     *
+     * Untyped passes (accepts Request at runtime); explicit mixed or any
+     * non-Request type fails so process(mixed, callable) is not treated
+     * as new-style.
+     *
+     * @param \ReflectionParameter $param Parameter to inspect.
+     * @return bool
+     */
+    private function acceptsRequest(\ReflectionParameter $param): bool
+    {
+        $type = $param->getType();
+
+        if ($type === null) {
+            return true;
+        }
+
+        if ($type instanceof \ReflectionNamedType) {
+            $name = $type->getName();
+
+            if ($name === 'mixed') {
+                return false;
+            }
+
+            return $name === Request::class || is_a($name, Request::class, true);
+        }
+
+        if ($type instanceof \ReflectionUnionType) {
+            foreach ($type->getTypes() as $inner) {
+                if ($inner instanceof \ReflectionNamedType) {
+                    $name = $inner->getName();
+
+                    if ($name === Request::class || is_a($name, Request::class, true)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check whether a reflection parameter accepts callable or Closure.
+     *
+     * Closure is accepted as callable-compatible because the pipeline
+     * passes a Closure as $next, so process(Request, Closure) runs fine.
+     *
+     * @param \ReflectionParameter $param Parameter to inspect.
+     * @return bool
+     */
+    private function allowsCallable(\ReflectionParameter $param): bool
+    {
+        $type = $param->getType();
+
+        if ($type instanceof \ReflectionNamedType) {
+            $name = $type->getName();
+
+            return $name === 'callable' || $name === 'Closure' || $name === \Closure::class;
+        }
+
+        if ($type instanceof \ReflectionUnionType) {
+            foreach ($type->getTypes() as $inner) {
+                if ($inner instanceof \ReflectionNamedType) {
+                    $name = $inner->getName();
+
+                    if ($name === 'callable' || $name === 'Closure' || $name === \Closure::class) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Run a mixed chain with at least one new-style middleware (onion model).
+     *
+     * Entries run in registration order (outer group first). New-style
+     * process($request, $next) may gate, short-circuit, or post-process
+     * $next($request). Legacy entries run as gates against the shared response.
+     * The final handler shares RouterBase::resolveHandlerResult() with the
+     * legacy path so handler outcomes cannot drift; the top layer emits once
+     * so redirects, blocks, and errors never double-emit. Stray echoes from
+     * middleware calling body() are discarded via buffering.
+     *
+     * False blocks only when returned without calling $next (blocking gate);
+     * a handler false passed through via return $next($request) falls through
+     * to Response::body(false) semantics (200 empty) and never renders 403.
+     * Handlers must return values when using the new pipeline: echoed output
+     * inside the chain is discarded, only the return value is emitted.
+     * Only vendor Roolith\Route\Response is emitted directly; any other
+     * object follows Response::body() semantics (JSON). The pipeline
+     * catch-all covers handler throws too (single generic 500), while legacy
+     * run() without middleware lets handler Throwables bubble.
+     *
+     * @param array $router Matched route.
+     * @param array<int, object> $instances Resolved middleware in order.
+     * @return $this
+     */
+    private function runWithNextMiddleware(array $router, array $instances): static
+    {
+        $failedClass = null;
+        $blocker = null;
+
+        $finalHandler = function (Request $request) use ($router): mixed {
+            return $this->invokeRouteHandler($router);
+        };
+
+        $next = $finalHandler;
+
+        foreach (array_reverse($instances) as $middlewareInstance) {
+            $prev = $next;
+
+            if ($this->isNewStyleMiddleware($middlewareInstance)) {
+                $next = function (Request $request) use ($middlewareInstance, $prev, &$blocker, &$failedClass): mixed {
+                    $called = false;
+                    $downstreamFailed = false;
+
+                    $innerNext = function (Request $innerRequest) use ($prev, &$called, &$downstreamFailed): mixed {
+                        $called = true;
+
+                        try {
+                            return $prev($innerRequest);
+                        } catch (\Throwable $e) {
+                            $downstreamFailed = true;
+
+                            throw $e;
+                        }
+                    };
+
+                    try {
+                        $result = $middlewareInstance->process($request, $innerNext);
+                    } catch (\Throwable $e) {
+                        // Downstream (inner middleware or handler) failures
+                        // keep the innermost failedClass (or null for handler
+                        // throws logged as chain); only attribute to this
+                        // middleware when its own code threw.
+                        if (!$downstreamFailed && $failedClass === null) {
+                            $failedClass = get_class($middlewareInstance);
+                        }
+
+                        throw $e;
+                    }
+
+                    if (!$called) {
+                        if ($result === false) {
+                            if ($blocker === null) {
+                                $blocker = $middlewareInstance;
+                            }
+
+                            return false;
+                        }
+
+                        if ($result === true || $result === null) {
+                            return $prev($request);
+                        }
+
+                        return $result;
+                    }
+
+                    // Passthrough path ($next was called): never mark a
+                    // blocker, so a handler false flowing through return
+                    // $next($request) keeps Response::body(false) semantics.
+                    return $result;
+                };
+            } else {
+                $next = function (Request $request) use ($middlewareInstance, $prev, &$blocker, &$failedClass): mixed {
+                    try {
+                        $allowed = $middlewareInstance->process($request, $this->response);
+                    } catch (\Throwable $e) {
+                        if ($failedClass === null) {
+                            $failedClass = get_class($middlewareInstance);
+                        }
+
+                        throw $e;
+                    }
+
+                    if (!$allowed) {
+                        if ($blocker === null) {
+                            $blocker = $middlewareInstance;
+                        }
+
+                        return false;
+                    }
+
+                    return $prev($request);
+                };
+            }
+        }
+
+        ob_start();
+
+        try {
+            $result = $next($this->request);
+            ob_end_clean();
+        } catch (\Throwable $e) {
+            if (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+
+            error_log('[Roolith Router] Middleware failed for ' . ($failedClass ?? 'chain') . ': ' . $this->sanitizeLogDetail($e->getMessage()));
+            $html = $this->getViewHtmlByStatusCode(HttpResponseCode::INTERNAL_SERVER_ERROR, 'Middleware Error');
+            $this->response->errorResponse($html, HttpResponseCode::INTERNAL_SERVER_ERROR);
+
+            return $this;
+        }
+
+        if ($result === false && $blocker !== null) {
+            $status = $this->blockedStatusFor($blocker);
+            $html = $this->getViewHtmlByStatusCode($status, 'Invalid request');
+            $this->response->errorResponse($html, $status);
+
+            return $this;
+        }
+
+        if ($result instanceof Response) {
+            $this->emitMiddlewareResponse($result);
+
+            return $this;
+        }
+
+        $this->response->body($result);
+
+        return $this;
+    }
+
+    /**
+     * Status code for a blocked chain (blocker $status_code or 403).
+     *
+     * @param object|null $blocker Middleware that returned false.
+     * @return int
+     */
+    private function blockedStatusFor(?object $blocker): int
+    {
+        if (is_object($blocker)) {
+            try {
+                $code = $blocker->status_code ?? null;
+
+                if (is_int($code)) {
+                    return $code;
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        return HttpResponseCode::FORBIDDEN;
+    }
+
+    /**
+     * Emit a returned vendor Response directly (status + headers + body).
+     *
+     * Delegates to Response::body() unwrapping so legacy and next() flows
+     * share one emission path with no second Content-Type.
+     *
+     * @param Response $returned Middleware or handler Response.
+     * @return void
+     */
+    private function emitMiddlewareResponse(Response $returned): void
+    {
+        $this->response->body($returned);
+    }
+
+    /**
+     * Invoke the matched route without emitting (pipeline final handler).
+     *
+     * Thin wrapper over RouterBase::resolveHandlerResult() so the pipeline
+     * and legacy executeRouteMethod() share one handler primitive and cannot
+     * drift. Redirect and error cases return a vendor Response carrying
+     * status + headers + pre-rendered body; successful handlers return their
+     * raw value for outer middleware to post-process. Only vendor Response
+     * is emitted directly; any other object follows Response::body()
+     * semantics (JSON). Throwables bubble to the pipeline catch-all as a
+     * single 500.
+     *
+     * @param array $router Matched route.
+     * @return mixed Handler raw value or vendor Response for redirects/errors.
+     */
+    private function invokeRouteHandler(array $router): mixed
+    {
+        return $this->resolveHandlerResult($router);
     }
 
     /**
